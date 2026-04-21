@@ -34,9 +34,13 @@ const isAnalyticsOpen = ref(false)
         <nav class="header-actions">
           <router-link to="/about" class="action-btn about-link">Про нас</router-link>
 
-          <button class="action-btn admin-btn" @click="isAnalyticsOpen = true">
-            <span class="icon">📊</span> Аналітика
-          </button>
+          <button
+  v-if="authStore.isAdmin"
+  class="action-btn admin-btn"
+  @click="isAnalyticsOpen = true"
+>
+  <span class="icon">📊</span> Аналітика
+</button>
 
           <div class="user-menu">
             <button

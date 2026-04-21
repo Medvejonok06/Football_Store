@@ -9,8 +9,6 @@ const router = useRouter()
 const cartStore = useCartStore()
 const authStore = useAuthStore()
 
-// --- КЛЮЧ АПІ НОВОЇ ПОШТИ ---
-// ⚠️ Заміни цей рядок на свій реальний ключ з кабінету Нової Пошти
 // --- КЛЮЧ АПІ НОВОЇ ПОШТИ (Тягнемо з .env файлу) ---
 const NP_API_KEY = import.meta.env.VITE_NP_API_KEY
 
@@ -53,17 +51,24 @@ const searchCity = () => {
   debounceTimeout = setTimeout(async () => {
     isSearchingCity.value = true
     try {
-      const res = await axios.post('https://api.novaposhta.ua/v2.0/json/', {
-        apiKey: NP_API_KEY,
-        modelName: 'Address',
-        calledMethod: 'searchSettlements',
-        methodProperties: {
-          CityName: citySearchQuery.value,
-          Limit: "50"
-        }
+      // ВИПРАВЛЕННЯ: Використовуємо fetch замість axios для запитів до НП
+      const res = await fetch('https://api.novaposhta.ua/v2.0/json/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: NP_API_KEY,
+          modelName: 'Address',
+          calledMethod: 'searchSettlements',
+          methodProperties: {
+            CityName: citySearchQuery.value,
+            Limit: "50"
+          }
+        })
       })
-      if (res.data.success && res.data.data.length > 0) {
-        cities.value = res.data.data[0].Addresses
+      const data = await res.json()
+
+      if (data.success && data.data.length > 0) {
+        cities.value = data.data[0].Addresses
       } else {
         cities.value = []
       }
@@ -72,7 +77,7 @@ const searchCity = () => {
     } finally {
       isSearchingCity.value = false
     }
-  }, 500) // Затримка 500мс, щоб не спамити API на кожну літеру
+  }, 500)
 }
 
 // 2. Вибір міста та завантаження відділень
@@ -85,27 +90,34 @@ const selectCity = async (city) => {
   await fetchWarehouses(city.Ref)
 }
 
+// 3. Завантаження відділень
 const fetchWarehouses = async (settlementRef) => {
   if (!NP_API_KEY) {
-    console.error('🚨 КЛЮЧ АПІ НЕ ЗНАЙДЕНО! Переконайся, що файл .env існує, змінна називається VITE_NP_API_KEY і ти перезапустив сервер (npm run dev).')
+    console.error('🚨 КЛЮЧ АПІ НЕ ЗНАЙДЕНО! Переконайся, що файл .env існує, змінна називається VITE_NP_API_KEY.')
     return
   }
 
   isLoadingWarehouses.value = true
   try {
-    const res = await axios.post('https://api.novaposhta.ua/v2.0/json/', {
-      apiKey: NP_API_KEY,
-      modelName: 'Address',
-      calledMethod: 'getWarehouses',
-      methodProperties: {
-        SettlementRef: settlementRef // ВИПРАВЛЕННЯ: правильна назва параметра для НП
-      }
+    // ВИПРАВЛЕННЯ: Використовуємо fetch замість axios для запитів до НП
+    const res = await fetch('https://api.novaposhta.ua/v2.0/json/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiKey: NP_API_KEY,
+        modelName: 'Address',
+        calledMethod: 'getWarehouses',
+        methodProperties: {
+          SettlementRef: settlementRef
+        }
+      })
     })
+    const data = await res.json()
 
-    if (res.data.success) {
-      warehouses.value = res.data.data
+    if (data.success) {
+      warehouses.value = data.data
     } else {
-      console.error('Помилка від Нової Пошти:', res.data.errors)
+      console.error('Помилка від Нової Пошти:', data.errors)
     }
   } catch (e) {
     console.error('Помилка мережі при завантаженні відділень:', e)
@@ -136,50 +148,56 @@ const filteredWarehouses = computed(() => {
   }
 })
 
-// Скидаємо вибране відділення при зміні типу доставки (Поштомат <-> Відділення)
+// Скидаємо вибране відділення при зміні типу доставки
 watch(deliveryType, () => {
   selectedWarehouse.value = null
 })
 
 // --- ПІДСУМОК ЗАМОВЛЕННЯ ---
 const cartTotal = computed(() => {
-  // Перевірка на випадок, якщо метод в store називається інакше
   if (cartStore.totalPrice) return cartStore.totalPrice
   return cartStore.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0)
 })
 
 // Відправка замовлення
-const submitOrder = () => {
+const submitOrder = async () => {
   if (!selectedCity.value || !selectedWarehouse.value || !customer.value.phone) {
     alert('Будь ласка, заповніть всі обов\'язкові поля доставки та контактів!')
     return
   }
 
-  // Тут в майбутньому буде POST-запит до твого Django бекенду
-  const orderData = {
-    customer: customer.value,
-    items: cartStore.items,
-    total: cartTotal.value,
-    delivery: {
-      type: deliveryType.value,
+  // Відправляємо дані на наш Django бекенд
+  try {
+    const orderData = {
+      full_name: `${customer.value.firstName} ${customer.value.lastName}`.trim(),
+      phone: customer.value.phone,
       city: selectedCity.value.Present,
-      warehouse: selectedWarehouse.value.Description
+      nova_poshta: selectedWarehouse.value.Description,
+      total_price: cartTotal.value,
+      items: cartStore.items.map(item => ({
+        id: item.id.toString(),
+        quantity: item.quantity || 1
+      }))
     }
+
+    const response = await axios.post('http://127.0.0.1:8000/api/checkout/', orderData)
+
+    if (response.status === 200) {
+      alert('Замовлення успішно оформлено! 🎉')
+      cartStore.clearCart() // Якщо цей метод є у твоєму сторі
+      router.push('/')
+    }
+  } catch (error) {
+    console.error('Помилка при оформленні:', error)
+    alert('Виникла помилка при збереженні замовлення. Спробуйте ще раз.')
   }
-
-  console.log('Дані замовлення готові до відправки:', orderData)
-  alert('Замовлення успішно оформлено! 🎉')
-
-  // Очищаємо кошик і кидаємо на головну
-  // cartStore.clearCart()
-  router.push('/')
 }
 </script>
 
 <template>
   <div class="checkout-layout">
     <div class="header-simple">
-      <button class="back-btn" @click="router.push('/checkout')">← Назад до кошика</button>
+      <button class="back-btn" @click="router.push('/cart')">← Назад до кошика</button>
       <h1>Оформлення замовлення</h1>
     </div>
 

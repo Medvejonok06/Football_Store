@@ -11,10 +11,23 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ['product_name', 'quantity']
 
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(source='orderitem_set', many=True, read_only=True)
+    # Використовуємо кастомний метод, щоб гарантовано дістати товари
+    items = serializers.SerializerMethodField()
+
     class Meta:
         model = Order
         fields = ['id', 'full_name', 'phone', 'city', 'nova_poshta', 'total_price', 'status', 'created_at', 'items']
+
+    def get_items(self, obj):
+        # Шукаємо товари як би вони не були записані в базі
+        if hasattr(obj, 'orderitem_set'):
+            items = obj.orderitem_set.all()
+        elif hasattr(obj, 'items'):
+            items = obj.items.all()
+        else:
+            return []
+        
+        return OrderItemSerializer(items, many=True).data
 # Кастомний серіалізатор для токена
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod

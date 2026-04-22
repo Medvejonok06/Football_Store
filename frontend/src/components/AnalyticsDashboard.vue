@@ -1,17 +1,20 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
+
+import { Bar } from 'vue-chartjs'
+import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from 'chart.js'
+
+ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
 const emit = defineEmits(['close'])
 const authStore = useAuthStore()
 
-const activeTab = ref('orders')
+const activeTab = ref('analytics')
 const orders = ref([])
 const analyticsData = ref(null)
 const isLoading = ref(true)
-
-// Стан для редагування
 const editingOrder = ref(null)
 
 onMounted(async () => {
@@ -38,12 +41,72 @@ const fetchAnalytics = async () => {
   } catch (e) { console.error('Помилка аналітики', e) }
 }
 
-// Вмикаємо режим редагування (робимо копію об'єкта)
-const editOrder = (order) => {
-  editingOrder.value = { ...order }
+const chartData = computed(() => {
+  if (!analyticsData.value || !analyticsData.value.chart_labels) return null
+  return {
+    labels: analyticsData.value.chart_labels,
+    datasets: [
+      {
+        label: 'Продано одиниць',
+        backgroundColor: (context) => {
+          const chart = context.chart;
+          const { ctx, chartArea } = chart;
+          if (!chartArea) return 'rgba(0, 255, 136, 0.5)';
+
+          const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+          gradient.addColorStop(0, 'rgba(0, 255, 136, 0.02)');
+          gradient.addColorStop(0.5, 'rgba(0, 255, 136, 0.3)');
+          gradient.addColorStop(1, 'rgba(0, 255, 136, 0.9)');
+          return gradient;
+        },
+        borderColor: '#00ff88',
+        borderWidth: { top: 3, right: 0, bottom: 0, left: 0 },
+        borderRadius: 6,
+        borderSkipped: 'bottom',
+        barPercentage: 0.45,
+        hoverBackgroundColor: '#00ff88',
+        data: analyticsData.value.chart_data
+      }
+    ]
+  }
+})
+
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: { y: { duration: 1500, easing: 'easeOutQuart' } },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: 'rgba(11, 17, 33, 0.95)',
+      titleColor: '#94a3b8',
+      bodyColor: '#00ff88',
+      borderColor: 'rgba(0, 255, 136, 0.3)',
+      borderWidth: 1,
+      padding: 15,
+      displayColors: false,
+      titleFont: { size: 13, family: 'sans-serif' },
+      bodyFont: { size: 18, weight: '900' },
+      cornerRadius: 12,
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      grid: { color: 'rgba(255, 255, 255, 0.03)', drawBorder: false },
+      ticks: { stepSize: 1, font: { weight: '600', color: '#64748b' }, padding: 15 },
+      border: { display: false }
+    },
+    x: {
+      grid: { display: false },
+      ticks: { font: { weight: '700', color: '#94a3b8' }, padding: 10 },
+      border: { color: 'rgba(255, 255, 255, 0.1)' }
+    }
+  }
 }
 
-// Зберігаємо зміни
+const editOrder = (order) => { editingOrder.value = { ...order } }
+
 const saveOrder = async () => {
   try {
     await axios.patch(`http://127.0.0.1:8000/api/admin-orders/${editingOrder.value.id}/`, {
@@ -53,12 +116,9 @@ const saveOrder = async () => {
       nova_poshta: editingOrder.value.nova_poshta,
       status: editingOrder.value.status
     })
-
-    // Оновлюємо локальний список
     const index = orders.value.findIndex(o => o.id === editingOrder.value.id)
     if (index !== -1) orders.value[index] = { ...editingOrder.value }
-
-    editingOrder.value = null // Виходимо з режиму редагування
+    editingOrder.value = null
     alert('✅ Замовлення успішно оновлено!')
   } catch (e) {
     console.error(e)
@@ -66,15 +126,13 @@ const saveOrder = async () => {
   }
 }
 
-// Видаляємо замовлення
 const deleteOrder = async (id) => {
-  if (!confirm('Ви впевнені, що хочете видалити це замовлення? Цю дію неможливо скасувати!')) return
-
+  if (!confirm('Ви впевнені, що хочете видалити це замовлення?')) return
   try {
     await axios.delete(`http://127.0.0.1:8000/api/admin-orders/${id}/`)
     orders.value = orders.value.filter(o => o.id !== id)
     editingOrder.value = null
-    alert('🗑️ Замовлення видалено')
+    await fetchAnalytics()
   } catch (e) {
     console.error(e)
     alert('❌ Помилка при видаленні')
@@ -83,53 +141,72 @@ const deleteOrder = async (id) => {
 
 const formatDate = (dateString) => {
   if (!dateString) return 'Невідомо'
-  const date = new Date(dateString)
-  return date.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' })
+  return new Date(dateString).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' })
 }
 </script>
 
 <template>
   <div class="modal-overlay" @click.self="emit('close')">
-    <div class="admin-panel">
+    <div class="admin-panel dark-theme">
       <button class="close-btn" @click="emit('close')">✕</button>
 
       <div class="panel-header">
-        <h2>👨‍💻 Панель Управління</h2>
+        <h2><span class="neon-icon">👨‍💻</span> Command Center</h2>
         <div class="tabs">
-          <button :class="{ active: activeTab === 'orders' }" @click="activeTab = 'orders'; editingOrder = null">📦 Замовлення</button>
           <button :class="{ active: activeTab === 'analytics' }" @click="activeTab = 'analytics'; editingOrder = null">📊 Аналітика</button>
+          <button :class="{ active: activeTab === 'orders' }" @click="activeTab = 'orders'; editingOrder = null">📦 Замовлення</button>
         </div>
       </div>
 
       <div class="panel-content" v-if="!isLoading">
 
+        <div v-if="activeTab === 'analytics' && analyticsData" class="analytics-tab">
+          <div class="analytics-top-cards">
+            <div class="stat-card glass-panel gradient-border">
+              <div class="stat-icon cyan-glow">💰</div>
+              <div class="stat-info">
+                <h3>Загальний дохід</h3>
+                <p class="revenue text-neon-green">{{ analyticsData.total_revenue }} ₴</p>
+              </div>
+            </div>
+            <div class="stat-card glass-panel">
+              <div class="stat-icon purple-glow">📦</div>
+              <div class="stat-info">
+                <h3>Всього замовлень</h3>
+                <p class="revenue text-neon-cyan">{{ orders.length }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-card glass-panel">
+            <div class="chart-header">
+              <h3>📈 Розподіл продажів за категоріями</h3>
+              <span class="badge">Live Data</span>
+            </div>
+            <div class="chart-wrapper">
+              <Bar v-if="chartData" :data="chartData" :options="chartOptions" />
+              <div v-else class="empty-chart">Немає даних для графіка</div>
+            </div>
+          </div>
+        </div>
+
         <div v-if="activeTab === 'orders'" class="orders-tab">
 
-          <div v-if="editingOrder" class="edit-mode">
-            <button class="back-btn" @click="editingOrder = null">← Назад до списку</button>
-            <div class="edit-grid">
+          <div v-if="editingOrder" class="edit-mode glass-panel">
+            <button class="back-btn" @click="editingOrder = null">← Повернутися</button>
 
+            <div class="edit-grid">
               <div class="edit-section">
-                <h3>Інформація про клієнта</h3>
-                <div class="form-group">
-                  <label>ПІБ Клієнта</label>
-                  <input type="text" v-model="editingOrder.full_name">
+                <div class="section-header-flex">
+                  <h3 class="section-title-flex">Клієнт</h3>
                 </div>
+                <div class="form-group"><label>ПІБ</label><input type="text" v-model="editingOrder.full_name" class="dark-input"></div>
+                <div class="form-group"><label>Телефон</label><input type="text" v-model="editingOrder.phone" class="dark-input"></div>
+                <div class="form-group"><label>Місто</label><input type="text" v-model="editingOrder.city" class="dark-input"></div>
+                <div class="form-group"><label>Відділення</label><input type="text" v-model="editingOrder.nova_poshta" class="dark-input"></div>
                 <div class="form-group">
-                  <label>Телефон</label>
-                  <input type="text" v-model="editingOrder.phone">
-                </div>
-                <div class="form-group">
-                  <label>Місто</label>
-                  <input type="text" v-model="editingOrder.city">
-                </div>
-                <div class="form-group">
-                  <label>Відділення НП</label>
-                  <input type="text" v-model="editingOrder.nova_poshta">
-                </div>
-                <div class="form-group">
-                  <label>Статус замовлення</label>
-                  <select v-model="editingOrder.status" class="status-select">
+                  <label>Статус</label>
+                  <select v-model="editingOrder.status" class="dark-input">
                     <option value="Нове">Нове</option>
                     <option value="Відправлено">Відправлено</option>
                     <option value="Виконано">Виконано</option>
@@ -138,138 +215,134 @@ const formatDate = (dateString) => {
               </div>
 
               <div class="edit-section">
-                <h3>Деталі замовлення #{{ editingOrder.id }}</h3>
-                <p class="edit-date">Створено: {{ formatDate(editingOrder.created_at) }}</p>
-                <div class="items-box">
-                  <div class="item-row" v-for="(item, idx) in editingOrder.items" :key="idx">
-                    <span>⚽ {{ item.product_name }}</span>
-                    <strong>x{{ item.quantity }}</strong>
+                <div class="section-header-flex">
+                  <h3 class="section-title-flex">Замовлення #{{ editingOrder.id }}</h3>
+                  <span class="badge-date">{{ formatDate(editingOrder.created_at) }}</span>
+                </div>
+
+                <div class="items-box dark-box">
+                  <div v-if="editingOrder.items && editingOrder.items.length > 0">
+                    <div class="item-row" v-for="(item, idx) in editingOrder.items" :key="idx">
+                      <span>{{ item.product_name }}</span><strong class="text-neon-cyan">x{{ item.quantity }}</strong>
+                    </div>
+                  </div>
+                  <div v-else class="empty-items">
+                    Список товарів порожній 🥺 (старе замовлення без збереженої історії)
                   </div>
                 </div>
-                <h2 class="edit-total">Сума: {{ editingOrder.total_price }} ₴</h2>
+
+                <div class="total-row">
+                  <span class="total-label">Разом до сплати:</span>
+                  <h2 class="edit-total text-neon-green">{{ editingOrder.total_price }} ₴</h2>
+                </div>
 
                 <div class="action-buttons">
-                  <button class="btn-save" @click="saveOrder">💾 Зберегти зміни</button>
-                  <button class="btn-delete" @click="deleteOrder(editingOrder.id)">🗑️ Видалити</button>
+                  <button class="btn-save" @click="saveOrder">Зберегти зміни</button>
+                  <button class="btn-delete" @click="deleteOrder(editingOrder.id)">Видалити</button>
                 </div>
               </div>
-
             </div>
           </div>
 
-          <table v-else class="modern-table clickable-table">
-            <thead>
-              <tr>
-                <th>ID / Дата</th>
-                <th>Клієнт / Доставка</th>
-                <th>Товари</th>
-                <th>Сума</th>
-                <th>Статус</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="order in orders" :key="order.id" @click="editOrder(order)">
-                <td>
-                  <strong>#{{ order.id }}</strong><br>
-                  <span class="date">{{ formatDate(order.created_at) }}</span>
-                </td>
-                <td>
-                  <strong>{{ order.full_name }}</strong> ({{ order.phone }})<br>
-                  <span class="delivery">{{ order.city }}, {{ order.nova_poshta }}</span>
-                </td>
-                <td>
-                  <ul class="item-list">
-                    <li v-for="(item, idx) in order.items" :key="idx">
-                      {{ item.product_name }} <span class="qty">x{{ item.quantity }}</span>
-                    </li>
-                  </ul>
-                </td>
-                <td class="price">{{ order.total_price }} ₴</td>
-                <td>
-                  <span :class="['status-badge', `status-${order.status === 'Нове' ? 'new' : order.status === 'Відправлено' ? 'shipped' : 'done'}`]">
-                    {{ order.status }}
-                  </span>
-                </td>
-              </tr>
-              <tr v-if="orders.length === 0">
-                <td colspan="5" class="empty">Поки немає жодного замовлення 🥺</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div v-if="activeTab === 'analytics' && analyticsData" class="analytics-tab">
-          <div class="stat-card">
-            <h3>Загальний дохід</h3>
-            <p class="revenue">{{ analyticsData.total_revenue }} ₴</p>
+          <div v-else class="glass-panel table-wrapper">
+            <table class="modern-table clickable-table">
+              <thead>
+                <tr>
+                  <th>ID / Дата</th><th>Доставка</th><th>Товари</th><th>Сума</th><th>Статус</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="order in orders" :key="order.id" @click="editOrder(order)">
+                  <td><strong class="text-white">#{{ order.id }}</strong><br><span class="date">{{ formatDate(order.created_at) }}</span></td>
+                  <td><strong class="text-white">{{ order.full_name }}</strong><br><span class="delivery">{{ order.city }}</span></td>
+                  <td><ul class="item-list"><li v-for="(item, idx) in order.items" :key="idx">{{ item.product_name }}</li></ul></td>
+                  <td class="price text-neon-green">{{ order.total_price }} ₴</td>
+                  <td><span :class="['status-badge', `status-${order.status === 'Нове' ? 'new' : order.status === 'Відправлено' ? 'shipped' : 'done'}`]">{{ order.status }}</span></td>
+                </tr>
+                <tr v-if="orders.length === 0"><td colspan="5" class="empty">Немає замовлень</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
       </div>
-      <div v-else class="loading">Завантаження даних бази... ⏳</div>
+      <div v-else class="loading text-neon-cyan">Отримання даних... ⏳</div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(10px); display: flex; justify-content: center; align-items: center; z-index: 9999; }
-.admin-panel { background: #f8fafc; width: 95%; max-width: 1100px; height: 85vh; border-radius: 24px; box-shadow: 0 25px 50px rgba(0,0,0,0.2); position: relative; display: flex; flex-direction: column; overflow: hidden; animation: slideDown 0.3s ease-out; }
-@keyframes slideDown { 0% { opacity: 0; transform: translateY(-30px); } 100% { opacity: 1; transform: translateY(0); } }
-.close-btn { position: absolute; top: 20px; right: 20px; background: white; border: 1px solid #e2e8f0; width: 40px; height: 40px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; transition: 0.2s; z-index: 10; }
-.close-btn:hover { background: #ef4444; color: white; border-color: #ef4444; }
-
-.panel-header { background: white; padding: 25px 30px; border-bottom: 1px solid #e2e8f0; }
-.panel-header h2 { margin: 0 0 20px 0; font-size: 1.8rem; color: #0f172a; font-weight: 900; }
-.tabs { display: flex; gap: 15px; }
-.tabs button { background: #f1f5f9; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 700; color: #64748b; cursor: pointer; transition: 0.2s; }
-.tabs button:hover { background: #e2e8f0; }
-.tabs button.active { background: #0f172a; color: white; }
-
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(5, 8, 15, 0.85); backdrop-filter: blur(12px); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+.admin-panel.dark-theme { background: #0b1121; width: 95%; max-width: 1100px; height: 85vh; border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1); position: relative; display: flex; flex-direction: column; overflow: hidden; animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1); color: #cbd5e1; }
+@keyframes slideDown { 0% { opacity: 0; transform: translateY(-40px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+.glass-panel { background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 25px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
+.panel-header { background: rgba(11, 17, 33, 0.8); padding: 25px 30px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); display: flex; justify-content: space-between; align-items: center; }
+.panel-header h2 { margin: 0; font-size: 1.5rem; color: #fff; font-weight: 800; letter-spacing: 0.5px; }
+.neon-icon { text-shadow: 0 0 15px rgba(0, 255, 136, 0.5); }
+.tabs { display: flex; gap: 10px; }
+.tabs button { background: rgba(255, 255, 255, 0.05); border: 1px solid transparent; padding: 10px 20px; border-radius: 12px; font-weight: 700; color: #94a3b8; cursor: pointer; transition: all 0.3s ease; }
+.tabs button:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.tabs button.active { background: rgba(0, 255, 136, 0.1); color: #00ff88; border-color: rgba(0, 255, 136, 0.3); box-shadow: 0 0 20px rgba(0, 255, 136, 0.1); }
+.close-btn { position: absolute; top: 25px; right: 30px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); width: 40px; height: 40px; border-radius: 50%; color: #fff; font-size: 1.2rem; cursor: pointer; transition: 0.3s; z-index: 10; display: flex; align-items: center; justify-content: center; }
+.close-btn:hover { background: #ef4444; border-color: #ef4444; box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
 .panel-content { flex: 1; padding: 30px; overflow-y: auto; }
-
-/* ТАБЛИЦЯ */
-.modern-table { width: 100%; border-collapse: collapse; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.02); }
+.analytics-top-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px; }
+.stat-card { display: flex; align-items: center; gap: 20px; position: relative; overflow: hidden; }
+.gradient-border::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: linear-gradient(90deg, #00ff88, #00ebd3); }
+.stat-icon { font-size: 2.5rem; width: 60px; height: 60px; display: flex; justify-content: center; align-items: center; border-radius: 14px; background: rgba(255, 255, 255, 0.05); }
+.cyan-glow { box-shadow: inset 0 0 20px rgba(0, 255, 136, 0.1); }
+.purple-glow { box-shadow: inset 0 0 20px rgba(168, 85, 247, 0.1); }
+.stat-info h3 { margin: 0 0 5px 0; font-size: 0.85rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.revenue { font-size: 2.2rem; font-weight: 900; margin: 0; }
+.chart-card { padding: 25px; }
+.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.chart-header h3 { margin: 0; color: #fff; font-weight: 800; font-size: 1.1rem; }
+.badge { background: rgba(0, 255, 136, 0.1); color: #00ff88; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 800; border: 1px solid rgba(0, 255, 136, 0.3); }
+.chart-wrapper { height: 320px; width: 100%; }
+.table-wrapper { padding: 0; overflow: hidden; }
+.modern-table { width: 100%; border-collapse: collapse; text-align: left; }
+.modern-table th { background: rgba(0, 0, 0, 0.2); color: #94a3b8; padding: 18px 20px; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.modern-table td { padding: 18px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); vertical-align: middle; }
 .clickable-table tbody tr { cursor: pointer; transition: 0.2s; }
-.clickable-table tbody tr:hover { background: #f8fafc; transform: scale(1.005); box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-.modern-table th { background: #0f172a; color: white; padding: 15px; text-align: left; font-size: 0.9rem; font-weight: 700; }
-.modern-table td { padding: 15px; border-bottom: 1px solid #f1f5f9; vertical-align: top; color: #334155; }
-.date { font-size: 0.8rem; color: #94a3b8; }
-.delivery { font-size: 0.85rem; color: #64748b; }
-.item-list { margin: 0; padding-left: 15px; font-size: 0.9rem; }
-.qty { font-weight: 800; color: #6366f1; }
-.price { font-weight: 900; font-size: 1.1rem; color: #10b981; }
-.empty { text-align: center; padding: 40px !important; color: #94a3b8; font-weight: 600; }
+.clickable-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+.date, .delivery { font-size: 0.8rem; color: #64748b; margin-top: 4px; display: block; }
+.item-list { margin: 0; padding-left: 15px; font-size: 0.85rem; color: #cbd5e1; }
+.price { font-weight: 900; font-size: 1.1rem; }
+.status-badge { padding: 6px 12px; border-radius: 8px; font-weight: 800; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.status-new { background: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
+.status-shipped { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); }
+.status-done { background: rgba(0, 255, 136, 0.1); color: #00ff88; border: 1px solid rgba(0, 255, 136, 0.2); }
+.edit-mode { padding: 30px; }
+.back-btn { background: none; border: none; font-weight: 700; color: #94a3b8; font-size: 0.9rem; cursor: pointer; margin-bottom: 25px; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+.back-btn:hover { color: #fff; transform: translateX(-5px); }
 
-.status-badge { padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; display: inline-block; }
-.status-new { background: #fef3c7; color: #d97706; }
-.status-shipped { background: #e0e7ff; color: #4f46e5; }
-.status-done { background: #d1fae5; color: #059669; }
+/* ІДЕАЛЬНЕ ВИРІВНЮВАННЯ КОЛОНОК */
+.edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+.section-header-flex { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 25px; height: 35px; box-sizing: border-box; }
+.section-title-flex { margin: 0; padding: 0; border: none; color: #fff; font-weight: 800; font-size: 1.17em; line-height: 1; }
+.badge-date { background: rgba(255, 255, 255, 0.05); padding: 6px 12px; border-radius: 8px; color: #94a3b8; font-size: 0.85rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.05); }
 
-/* РЕЖИМ РЕДАГУВАННЯ */
-.back-btn { background: none; border: none; font-weight: 800; color: #6366f1; font-size: 1rem; cursor: pointer; margin-bottom: 20px; transition: 0.2s; }
-.back-btn:hover { transform: translateX(-5px); color: #4f46e5; }
-.edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
-.edit-section { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 20px rgba(0,0,0,0.02); border: 1px solid #f1f5f9; }
-.edit-section h3 { margin-top: 0; color: #0f172a; font-weight: 800; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 20px; }
-
-.form-group { margin-bottom: 15px; }
-.form-group label { display: block; font-size: 0.85rem; font-weight: 700; color: #64748b; margin-bottom: 5px; }
-.form-group input, .form-group select { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; font-family: inherit; font-size: 1rem; color: #0f172a; transition: 0.2s; box-sizing: border-box; }
-.form-group input:focus, .form-group select:focus { outline: none; border-color: #6366f1; background: #f8fafc; }
-
-.edit-date { color: #64748b; font-size: 0.9rem; margin-bottom: 15px; }
-.items-box { background: #f8fafc; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
-.item-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #cbd5e1; color: #334155; }
+.form-group { margin-bottom: 20px; }
+.form-group label { display: block; font-size: 0.8rem; font-weight: 700; color: #94a3b8; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+.dark-input { width: 100%; padding: 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; font-family: inherit; font-size: 1rem; color: #fff; transition: 0.3s; box-sizing: border-box; }
+.dark-input:focus { outline: none; border-color: #00ff88; background: rgba(0, 255, 136, 0.05); box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.1); }
+.dark-box { background: rgba(0, 0, 0, 0.2); padding: 20px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 25px; }
+.item-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.1); }
 .item-row:last-child { border-bottom: none; }
-.edit-total { color: #10b981; font-weight: 900; margin-bottom: 30px; font-size: 1.8rem; }
 
+/* ФІКС ОБРІЗАННЯ ТЕКСТУ ПУСТОГО ЗАМОВЛЕННЯ */
+.empty-items { text-align: center; color: #64748b; font-size: 0.9rem; padding: 10px 0; font-style: italic; white-space: normal; line-height: 1.5; }
+
+.total-row { display: flex; justify-content: space-between; align-items: center; background: rgba(0, 255, 136, 0.05); border: 1px solid rgba(0, 255, 136, 0.1); padding: 15px 20px; border-radius: 12px; margin-bottom: 25px; }
+.total-label { color: #94a3b8; font-weight: 700; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; }
+.edit-total { margin: 0; font-weight: 900; font-size: 1.8rem; }
 .action-buttons { display: flex; gap: 15px; }
-.btn-save { flex: 2; padding: 15px; background: #0f172a; color: white; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; }
-.btn-save:hover { background: #10b981; }
-.btn-delete { flex: 1; padding: 15px; background: #fee2e2; color: #ef4444; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; }
-.btn-delete:hover { background: #ef4444; color: white; }
-
-.loading { text-align: center; padding: 50px; font-weight: 700; color: #64748b; }
-.stat-card { background: white; padding: 30px; border-radius: 16px; display: inline-block; box-shadow: 0 10px 20px rgba(0,0,0,0.02); }
-.revenue { font-size: 2.5rem; font-weight: 900; color: #10b981; margin: 10px 0 0 0; }
+.btn-save { flex: 2; padding: 16px; background: #00ff88; color: #0b1121; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; font-size: 1rem; }
+.btn-save:hover { box-shadow: 0 0 20px rgba(0, 255, 136, 0.4); transform: translateY(-2px); }
+.btn-delete { flex: 1; padding: 16px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
+.btn-delete:hover { background: #ef4444; color: white; box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+.text-white { color: #fff; }
+.text-neon-green { color: #00ff88; text-shadow: 0 0 10px rgba(0, 255, 136, 0.3); }
+.text-neon-cyan { color: #00ebd3; text-shadow: 0 0 10px rgba(0, 235, 211, 0.3); }
+.loading { text-align: center; padding: 50px; font-weight: 800; font-size: 1.2rem; }
 </style>

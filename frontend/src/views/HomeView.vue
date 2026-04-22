@@ -17,6 +17,8 @@ const selectedBrands = ref([])
 const sortBy = ref('default')
 const isSortOpen = ref(false)
 
+const isLoading = ref(true)
+
 const topBrands = ['Nike', 'Adidas', 'Puma', 'Jordan', 'Joma']
 
 const sortOptions = {
@@ -34,6 +36,8 @@ onMounted(async () => {
     categories.value = c.data
   } catch (e) {
     console.error('Помилка завантаження бази:', e)
+  } finally {
+    isLoading.value = false
   }
 })
 
@@ -159,10 +163,16 @@ const resetFilters = () => {
       </aside>
 
       <main class="products-area">
-        <div v-if="filteredProducts.length === 0" class="empty">
+        <div v-if="isLoading" class="loading-state">
+          <div class="spinner"></div>
+          <p>Завантаження колекції...</p>
+        </div>
+
+        <div v-else-if="filteredProducts.length === 0" class="empty">
           <p>Нічого не знайдено 🕵️‍♂️ Спробуйте змінити фільтри</p>
         </div>
-        <transition-group name="fade-grid" tag="div" class="grid">
+
+        <transition-group v-else name="fade-grid" tag="div" class="grid">
           <div v-for="product in filteredProducts" :key="product.id" class="p-card">
             <router-link :to="'/product/' + product.id" class="card-body">
               <div class="img-wrap">
@@ -173,14 +183,14 @@ const resetFilters = () => {
               <div class="info">
                 <h3>{{ product.name }}</h3>
                 <p class="studs">{{ product.stud_type || 'Elite Quality' }}</p>
-                <div class="card-footer">
-                  <span class="price">{{ product.price }} ₴</span>
-                  <button class="add-btn" @click.prevent="cartStore.addToCart(product)">
-                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg>
-                  </button>
-                </div>
               </div>
             </router-link>
+            <div class="card-footer">
+              <span class="price">{{ product.price }} ₴</span>
+              <button class="add-btn" @click.prevent="cartStore.addToCart(product)">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg>
+              </button>
+            </div>
           </div>
         </transition-group>
       </main>
@@ -204,7 +214,6 @@ const resetFilters = () => {
 .search-box input { width: 100%; padding: 14px 45px; border: 2px solid #f1f5f9; border-radius: 16px; font-size: 1rem; font-family: inherit; transition: 0.3s; }
 .search-box input:focus { border-color: #6366f1; outline: none; background: #f8fafc; }
 
-/* КАСТОМНИЙ ДРОПДАУН СОРТУВАННЯ */
 .custom-select { position: relative; cursor: pointer; display: flex; align-items: center; gap: 10px; min-width: 260px; }
 .custom-select .label { font-weight: 700; color: #64748b; font-size: 0.9rem; }
 .custom-select .trigger { background: #f1f5f9; padding: 12px 18px; border-radius: 14px; font-weight: 800; display: flex; justify-content: space-between; flex-grow: 1; border: 1px solid #e2e8f0; }
@@ -215,59 +224,101 @@ const resetFilters = () => {
 
 .main-content { display: grid; grid-template-columns: 300px 1fr; gap: 40px; }
 
-/* САЙДБАР */
 .filters-sidebar { background: white; padding: 30px; border-radius: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); position: sticky; top: 100px; height: calc(100vh - 130px); overflow-y: auto; }
 .filters-sidebar::-webkit-scrollbar { width: 6px; }
-.filters-sidebar::-webkit-scrollbar-track { background: transparent; }
 .filters-sidebar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-.filters-sidebar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
 .filter-group { margin-bottom: 30px; }
 .filter-group h4 { margin-bottom: 15px; font-weight: 800; color: #1e293b; }
 
-/* ПОЛЯ ЦІНИ */
 .price-inputs { display: flex; align-items: center; gap: 12px; }
 .input-wrapper { position: relative; flex: 1; }
 .input-wrapper input { width: 100%; padding: 12px 30px 12px 15px; border: 2px solid #f1f5f9; background: #f8fafc; border-radius: 14px; font-family: inherit; font-weight: 700; font-size: 0.95rem; color: #0f172a; transition: all 0.3s ease; box-sizing: border-box; }
 .input-wrapper input:focus { outline: none; border-color: #6366f1; background: white; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
-.input-wrapper input::-webkit-outer-spin-button,
-.input-wrapper input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  appearance: none; /* ДОДАЛИ СЮДИ */
-  margin: 0;
-}
-.input-wrapper input[type=number] {
-  -moz-appearance: textfield;
-  appearance: textfield; /* І ДОДАЛИ СЮДИ */
-}
-.input-wrapper .currency { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-weight: 800; pointer-events: none; }
+.input-wrapper .currency { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-weight: 800; }
 .dash { color: #cbd5e1; font-weight: 900; }
 
 .brand-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .brand-pill { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 8px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; gap: 5px; }
-.brand-pill.active { background: #6366f1; color: white; border-color: #6366f1; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+.brand-pill.active { background: #6366f1; color: white; border-color: #6366f1; }
 
 .radio-item { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; cursor: pointer; font-weight: 600; color: #475569; }
 .radio-item input { accent-color: #6366f1; width: 18px; height: 18px; }
 .reset-btn { width: 100%; padding: 14px; background: #fee2e2; color: #ef4444; border: none; border-radius: 14px; cursor: pointer; font-weight: 800; transition: 0.2s; }
 
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
-.p-card { background: white; border-radius: 32px; padding: 15px; border: 1px solid #f1f5f9; transition: 0.4s; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 25px;
+  align-items: stretch;
+}
+
+.p-card {
+  background: white;
+  border-radius: 32px;
+  padding: 15px;
+  border: 1px solid #f1f5f9;
+  transition: 0.4s;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
 .p-card:hover { transform: translateY(-10px); box-shadow: 0 30px 60px rgba(0,0,0,0.08); }
-.card-body { text-decoration: none; color: inherit; }
 
-.img-wrap { background: #f8fafc; height: 220px; border-radius: 24px; display: flex; align-items: center; justify-content: center; font-size: 5rem; position: relative; overflow: hidden; }
-.tag { position: absolute; top: 15px; left: 15px; background: white; padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 800; color: #6366f1; z-index: 2; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+.card-body {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
 
-.product-image { width: 100%; height: 100%; object-fit: contain; padding: 15px; transition: 0.3s; }
+.img-wrap {
+  background: #f8fafc;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 15px;
+}
+
+.tag { position: absolute; top: 15px; left: 15px; background: white; padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 800; color: #6366f1; z-index: 2; }
+.product-image { max-width: 90%; max-height: 90%; object-fit: contain; transition: 0.3s; }
 .p-card:hover .product-image { transform: scale(1.05); }
 
-.info { padding: 20px 5px; }
-.info h3 { margin: 0 0 8px 0; font-size: 1.2rem; font-weight: 800; color: #0f172a; }
-.studs { color: #94a3b8; font-weight: 700; font-size: 0.9rem; margin-bottom: 20px; }
-.card-footer { display: flex; justify-content: space-between; align-items: center; }
+.info { padding: 5px; flex-grow: 1; }
+.info h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #0f172a;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.studs { color: #94a3b8; font-weight: 700; font-size: 0.9rem; margin: 0; text-transform: uppercase; }
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 5px 5px 5px;
+  margin-top: auto;
+}
 .price { font-size: 1.6rem; font-weight: 900; color: #0f172a; }
 .add-btn { width: 48px; height: 48px; background: #0f172a; color: white; border: none; border-radius: 16px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; }
-.add-btn:hover { background: #00ff88; color: #0f172a; transform: scale(1.1); }
+.add-btn:hover { background: #00ff88; color: #0f172a; transform: scale(1.1) rotate(90deg); }
+
+.empty, .loading-state { grid-column: 1 / -1; text-align: center; padding: 60px; background: white; border-radius: 32px; color: #64748b; font-weight: 600; }
+.spinner { width: 40px; height: 40px; border: 4px solid #f1f5f9; border-top-color: #6366f1; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .slide-enter-active, .slide-leave-active { transition: 0.3s ease; }
 .slide-enter-from, .slide-leave-to { opacity: 0; transform: translateY(-10px); }

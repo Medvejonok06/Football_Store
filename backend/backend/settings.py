@@ -132,10 +132,16 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 
 # Налаштування для Django REST Framework
+# Налаштування для Django REST Framework
+# Знайти і оновити цей блок
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
+    # ДОДАЙ ЦЕЙ РЯДОК:
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
 }
 
 # Налаштування часу життя токенів (опціонально, але корисно)

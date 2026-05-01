@@ -2,6 +2,8 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
+// 1. Імпортуємо нову модалку
+import AdminModal from './AdminModal.vue'
 
 import { Bar } from 'vue-chartjs'
 import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from 'chart.js'
@@ -16,6 +18,10 @@ const orders = ref([])
 const analyticsData = ref(null)
 const isLoading = ref(true)
 const editingOrder = ref(null)
+
+// 2. Змінні для керування модалкою
+const isSuccessModalOpen = ref(false)
+const modalMessage = ref('')
 
 onMounted(async () => {
   if (!authStore.isAdmin) {
@@ -107,6 +113,7 @@ const chartOptions = {
 
 const editOrder = (order) => { editingOrder.value = { ...order } }
 
+// 3. Оновлена функція збереження
 const saveOrder = async () => {
   try {
     await axios.patch(`http://127.0.0.1:8000/api/admin-orders/${editingOrder.value.id}/`, {
@@ -118,11 +125,18 @@ const saveOrder = async () => {
     })
     const index = orders.value.findIndex(o => o.id === editingOrder.value.id)
     if (index !== -1) orders.value[index] = { ...editingOrder.value }
+
+    // Закриваємо режим редагування
     editingOrder.value = null
-    alert('✅ Замовлення успішно оновлено!')
+
+    // ВИКЛИКАЄМО МОДАЛКУ ЗАМІСТЬ ALERT
+    modalMessage.value = "Замовлення успішно оновлено! Всі дані збережені в базі."
+    isSuccessModalOpen.value = true
+
   } catch (e) {
     console.error(e)
-    alert('❌ Помилка при збереженні')
+    modalMessage.value = "Сталася помилка при збереженні даних. Спробуйте ще раз."
+    isSuccessModalOpen.value = true
   }
 }
 
@@ -133,6 +147,9 @@ const deleteOrder = async (id) => {
     orders.value = orders.value.filter(o => o.id !== id)
     editingOrder.value = null
     await fetchAnalytics()
+
+    modalMessage.value = "Замовлення було назавжди видалено з системи."
+    isSuccessModalOpen.value = true
   } catch (e) {
     console.error(e)
     alert('❌ Помилка при видаленні')
@@ -268,10 +285,19 @@ const formatDate = (dateString) => {
       </div>
       <div v-else class="loading text-neon-cyan">Отримання даних... ⏳</div>
     </div>
+
+    <!-- 4. ДОДАЄМО КОМПОНЕНТ МОДАЛКИ В КІНЕЦЬ ТЕМПЛЕЙТУ -->
+    <AdminModal
+      :show="isSuccessModalOpen"
+      title="Повідомлення системи"
+      :message="modalMessage"
+      @close="isSuccessModalOpen = false"
+    />
   </div>
 </template>
 
 <style scoped>
+/* Стилі залишаються без змін, як у тебе були */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(5, 8, 15, 0.85); backdrop-filter: blur(12px); display: flex; justify-content: center; align-items: center; z-index: 9999; }
 .admin-panel.dark-theme { background: #0b1121; width: 95%; max-width: 1100px; height: 85vh; border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1); position: relative; display: flex; flex-direction: column; overflow: hidden; animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1); color: #cbd5e1; }
 @keyframes slideDown { 0% { opacity: 0; transform: translateY(-40px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
@@ -316,7 +342,6 @@ const formatDate = (dateString) => {
 .back-btn { background: none; border: none; font-weight: 700; color: #94a3b8; font-size: 0.9rem; cursor: pointer; margin-bottom: 25px; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
 .back-btn:hover { color: #fff; transform: translateX(-5px); }
 
-/* ІДЕАЛЬНЕ ВИРІВНЮВАННЯ КОЛОНОК */
 .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
 .section-header-flex { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 25px; height: 35px; box-sizing: border-box; }
 .section-title-flex { margin: 0; padding: 0; border: none; color: #fff; font-weight: 800; font-size: 1.17em; line-height: 1; }
@@ -330,7 +355,6 @@ const formatDate = (dateString) => {
 .item-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.1); }
 .item-row:last-child { border-bottom: none; }
 
-/* ФІКС ОБРІЗАННЯ ТЕКСТУ ПУСТОГО ЗАМОВЛЕННЯ */
 .empty-items { text-align: center; color: #64748b; font-size: 0.9rem; padding: 10px 0; font-style: italic; white-space: normal; line-height: 1.5; }
 
 .total-row { display: flex; justify-content: space-between; align-items: center; background: rgba(0, 255, 136, 0.05); border: 1px solid rgba(0, 255, 136, 0.1); padding: 15px 20px; border-radius: 12px; margin-bottom: 25px; }

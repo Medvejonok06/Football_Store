@@ -5,124 +5,138 @@ const router = useRouter()
 
 <template>
   <div class="about-page">
-    <section class="about-hero">
-      <h1>Більше ніж просто <span>магазин</span></h1>
-      <p>Ми створюємо майбутнє футбольного екіпірування, поєднуючи професійний спорт та інтелектуальні технології.</p>
-    </section>
+    <div class="about-container">
+      <section class="hero-section">
+        <h1 class="hero-title">Більше ніж просто <span>магазин</span></h1>
+        <p class="hero-subtitle">
+          Ми поєднуємо пристрасть до футболу з інноваційними технологіями, щоб кожен гравець міг знайти свою ідеальну модель.
+        </p>
+      </section>
 
-    <div class="about-grid">
-      <div class="about-card story">
-        <div class="icon">🏆</div>
-        <h3>Наша історія</h3>
-        <p>Заснований у 2024 році в Чернівцях, FootballPRO пройшов шлях від маленького стартапу до провідної платформи для футболістів. Ми розуміємо, що кожен гравець унікальний, тому впровадили AI-підбір взуття.</p>
-      </div>
-
-      <div class="about-card contacts">
-        <h3>Зв'язок з нами</h3>
-        <div class="contact-item">
-          <span class="c-icon">📞</span>
-          <div>
-            <p class="label">Телефон</p>
-            <p class="value">+380 (99) 123-45-67</p>
+      <div class="about-grid">
+        <!-- 1. НАША ІСТОРІЯ -->
+        <div class="glass-card history-block">
+          <div class="card-header">
+            <span class="icon-glow">🏆</span>
+            <h2>Наша історія</h2>
+          </div>
+          <div class="rich-text">
+            <p>
+              Наша подорож розпочалася у 2024 році в самому серці **Чернівців**. FootballPRO виник не просто як бізнес, а як відповідь на реальну проблему: складність пошуку професійного екіпірування, яке б ідеально відповідало індивідуальним особливостям гравця.
+            </p>
+            <p>
+              Ми починали як невелика команда ентузіастів, які проводили години на футбольних полях, аналізуючи потреби спортсменів. Сьогодні ми — прогресивна платформа, що використовує алгоритми штучного інтелекту для аналізу вашого стилю гри.
+            </p>
+          </div>
+          <div class="history-stats">
+            <div class="stat-item">
+              <strong>2+</strong>
+              <span>Роки на ринку</span>
+            </div>
+            <div class="stat-item">
+              <strong>1000+</strong>
+              <span>Задоволених гравців</span>
+            </div>
           </div>
         </div>
-        <div class="contact-item">
-          <span class="c-icon">📧</span>
-          <div>
-            <p class="label">Email</p>
-            <p class="value">support@footballpro.ua</p>
+
+        <!-- 2. ЗВ'ЯЗОК З НАМИ -->
+        <div class="glass-card contacts-block">
+          <h3 class="section-title">Зв'язок з нами</h3>
+          <div class="contact-mini-list">
+            <div class="mini-item clickable-border">
+              <span class="m-icon">📞</span>
+              <div class="m-content">
+                <label>Телефон</label>
+                <strong>+380 (99) 123-45-67</strong>
+              </div>
+            </div>
+            <div class="mini-item clickable-border">
+              <span class="m-icon">📧</span>
+              <div class="m-content">
+                <label>Email</label>
+                <strong>support@footballpro.ua</strong>
+              </div>
+            </div>
+            <div class="mini-item clickable-border">
+              <span class="m-icon">📍</span>
+              <div class="m-content">
+                <label>Адреса</label>
+                <strong>м. Чернівці, вул. Університетська, 28</strong>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="contact-item">
-          <span class="c-icon">📍</span>
-          <div>
-            <p class="label">Локація</p>
-            <p class="value">м. Чернівці, вул. Університетська, 28</p>
+
+        <!-- 3. ГРАФІК РОБОТИ -->
+        <div class="glass-card schedule-block">
+          <div class="card-header">
+            <span class="icon-glow">🕒</span>
+            <h3>Графік роботи</h3>
+          </div>
+          <ul class="schedule-rows">
+            <li><span>Понеділок - П'ятниця</span> <strong>09:00 - 20:00</strong></li>
+            <li><span>Субота</span> <strong>10:00 - 18:00</strong></li>
+            <li class="off-day"><span>Неділя</span> <strong>Вихідний</strong></li>
+          </ul>
+          <p class="schedule-note">Онлайн-замовлення приймаються цілодобово 24/7</p>
+        </div>
+
+        <!-- 4. ЧОМУ МИ? -->
+        <div class="glass-card why-us-block">
+          <h3 class="section-title">Чому ми?</h3>
+          <div class="rich-text">
+            <p>
+              Ми віримо, що правильне взуття — це 50% успіху на полі. Саме тому ми розробили систему **Smart Match**, яка допомагає підібрати модель не за картинкою, а за вашими фізичними параметрами.
+            </p>
+            <p>
+              Обираючи FootballPRO, ви отримуєте гарантію оригінальності кожної одиниці товару. Наша мета — дати кожному гравцю відчуття професіонала.
+            </p>
+          </div>
+          <div class="tech-tags">
+            <span class="t-badge">Smart Match AI</span>
+            <span class="t-badge">Original Gear</span>
+            <span class="t-badge">Fast Delivery</span>
           </div>
         </div>
       </div>
 
-      <div class="about-card schedule">
-        <div class="icon">🕒</div>
-        <h3>Графік роботи</h3>
-        <ul class="schedule-list">
-          <li><span>Пн - Пт:</span> <span>09:00 - 20:00</span></li>
-          <li><span>Сб:</span> <span>10:00 - 18:00</span></li>
-          <li><span>Нд:</span> <span class="closed">Вихідний</span></li>
-        </ul>
+      <div class="actions">
+        <button class="back-btn" @click="router.push('/')">Повернутись до покупок</button>
       </div>
-
-      <div class="about-card values">
-        <h3>Чому ми?</h3>
-        <div class="values-flex">
-          <div class="v-tag">Якість</div>
-          <div class="v-tag">Швидкість</div>
-          <div class="v-tag">Технологічність</div>
-          <div class="v-tag">Довіра</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="back-home">
-      <button @click="router.push('/')" class="btn-back">Повернутись до покупок</button>
     </div>
   </div>
 </template>
 
 <style scoped>
-.about-page { max-width: 1200px; margin: 0 auto; padding-bottom: 60px; }
+.about-page { width: 100%; min-height: 100vh; display: flex; justify-content: center; }
+.about-container { width: 100%; max-width: 1300px; padding: 60px 20px; color: #e2e8f0; position: relative; z-index: 5; }
+.hero-section { text-align: center; margin-bottom: 70px; }
+.hero-title { font-size: clamp(2.5rem, 5vw, 3.8rem); font-weight: 900; margin-bottom: 20px; letter-spacing: -2px; }
+.hero-title span { color: #6366f1; text-shadow: 0 0 30px rgba(99, 102, 241, 0.4); }
+.hero-subtitle { color: #94a3b8; font-size: 1.25rem; max-width: 700px; margin: 0 auto; line-height: 1.6; }
 
-.about-hero { text-align: center; padding: 60px 0; max-width: 800px; margin: 0 auto; }
-.about-hero h1 { font-size: 3.5rem; font-weight: 900; color: #0f172a; margin-bottom: 20px; }
-.about-hero h1 span { color: #6366f1; }
-.about-hero p { font-size: 1.25rem; color: #64748b; line-height: 1.6; }
+.about-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; width: 100%; }
+.glass-card { background: rgba(17, 24, 39, 0.9); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 32px; padding: 40px; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4); }
+.glass-card:hover { border-color: #00ff88; transform: translateY(-5px); transition: 0.3s; }
 
-/* BENTO GRID */
-.about-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: auto auto;
-  gap: 25px;
-}
+.rich-text p { margin-bottom: 20px; line-height: 1.7; color: #cbd5e1; font-size: 1rem; }
+.history-stats { display: flex; gap: 40px; margin-top: auto; padding-top: 30px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+.stat-item strong { display: block; font-size: 2rem; color: #00ff88; font-weight: 900; }
+.stat-item span { font-size: 0.8rem; color: #64748b; text-transform: uppercase; font-weight: 800; }
 
-.about-card {
-  background: white;
-  padding: 35px;
-  border-radius: 32px;
-  border: 1px solid rgba(255,255,255,0.3);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.04);
-  transition: 0.3s;
-}
-.about-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
+.mini-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.08); transition: 0.2s; margin-bottom: 10px; }
+.mini-item:hover { border-color: #6366f1; background: rgba(99, 102, 241, 0.05); }
 
-.about-card h3 { font-size: 1.5rem; font-weight: 800; margin-bottom: 20px; color: #0f172a; }
+.schedule-rows { list-style: none; padding: 0; margin-bottom: 20px; }
+.schedule-rows li { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.1); }
+.off-day strong { color: #ef4444; }
 
-.story { grid-column: span 2; background: #0f172a; color: white; }
-.story h3 { color: #00ff88; }
-.story p { line-height: 1.7; opacity: 0.9; font-size: 1.1rem; }
-.icon { font-size: 3rem; margin-bottom: 15px; }
+.tech-tags { display: flex; gap: 12px; margin-top: auto; flex-wrap: wrap; }
+.t-badge { padding: 8px 16px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 12px; color: #6366f1; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; }
 
-.contacts { grid-row: span 2; }
-.contact-item { display: flex; gap: 15px; margin-bottom: 25px; align-items: center; }
-.c-icon { font-size: 1.5rem; background: #f1f5f9; padding: 12px; border-radius: 14px; }
-.label { font-size: 0.8rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin: 0; }
-.value { font-size: 1rem; font-weight: 700; color: #0f172a; margin: 0; }
+.back-btn { background: #fff; color: #000; border: none; padding: 18px 45px; border-radius: 20px; font-weight: 900; cursor: pointer; transition: 0.3s; }
+.back-btn:hover { background: #00ff88; box-shadow: 0 0 25px rgba(0, 255, 136, 0.5); }
 
-.schedule-list { list-style: none; padding: 0; margin: 0; }
-.schedule-list li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-weight: 600; }
-.closed { color: #ef4444; }
-
-.values { background: linear-gradient(135deg, #6366f1, #a855f7); color: white; }
-.values h3 { color: white; }
-.values-flex { display: flex; flex-wrap: wrap; gap: 10px; }
-.v-tag { background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 100px; font-weight: 700; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.3); }
-
-.back-home { text-align: center; margin-top: 60px; }
-.btn-back { background: #0f172a; color: white; border: none; padding: 16px 35px; border-radius: 18px; font-weight: 800; cursor: pointer; transition: 0.3s; }
-.btn-back:hover { background: #1e293b; transform: scale(1.05); }
-
-@media (max-width: 900px) {
-  .about-grid { grid-template-columns: 1fr; }
-  .story { grid-column: span 1; }
-}
+@media (max-width: 1024px) { .about-grid { grid-template-columns: 1fr; } }
 </style>

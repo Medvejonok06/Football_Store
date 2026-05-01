@@ -1,176 +1,238 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
   products: { type: Array, required: true }
 })
-const emit = defineEmits(['close', 'add-to-cart'])
 
+defineEmits(['close', 'add-to-cart'])
+
+// --- СТАН ОПИТУВАННЯ ---
 const step = ref(1)
-const answers = ref({
-  type: null,
-  detail: null,
-  brand: null // Додали нове поле для бренду
+const filters = ref({
+  mainCategory: '',
+  shoeType: '',
+  brand: ''
 })
 
-const isAnalyzing = ref(false)
+const topBrands = ['Nike', 'Adidas', 'Puma', 'Jordan', 'Joma']
+
+// Змінна для збереження ЄДИНОГО фінального товару
 const recommendedProduct = ref(null)
 
-// Крок 1: Вибір категорії
-const selectType = (type) => {
-  answers.value.type = type
-  step.value = 2
-}
+// --- ЛОГІКА ФІЛЬТРАЦІЇ ---
 
-// Крок 2: Вибір покриття / призначення
-const selectDetail = (detail) => {
-  answers.value.detail = detail
-  step.value = 3 // Тепер ідемо на 3-й крок (Бренд)
-}
+// Товари, які залишилися ДО вибору бренду
+const matchingProducts = computed(() => {
+  let res = props.products || []
 
-// Крок 3: Вибір бренду
-const selectBrand = (brand) => {
-  answers.value.brand = brand
-  step.value = 4 // Запускаємо аналіз
-  isAnalyzing.value = true
-
-  setTimeout(() => {
-    analyzeAndRecommend()
-    isAnalyzing.value = false
-    step.value = 5 // Показуємо результат
-  }, 1500)
-}
-
-// УДОСКОНАЛЕНИЙ АЛГОРИТМ ПІДБОРУ
-const analyzeAndRecommend = () => {
-  let filtered = [...props.products]
-
-  // 1. Фільтруємо за головною категорією та деталями
-  if (answers.value.type === 'shoes') {
-    filtered = filtered.filter(p =>
-      p.category_name?.toLowerCase().includes('взуття') ||
-      p.category_name?.toLowerCase().includes('бутс') ||
-      p.category_name?.toLowerCase().includes('футзалк')
-    )
-
-    // Уточнення покриття
-    if (answers.value.detail === 'IN') {
-      filtered = filtered.filter(p => p.stud_type?.includes('IN') || p.name.toLowerCase().includes('sala') || p.name.toLowerCase().includes('gato') || p.category_name?.toLowerCase().includes('футзалк'))
-    } else if (answers.value.detail === 'FG') {
-      filtered = filtered.filter(p => p.stud_type?.includes('FG') || p.name.toLowerCase().includes('elite') || p.category_name?.toLowerCase().includes('бутс'))
-    } else if (answers.value.detail === 'TF') {
-      filtered = filtered.filter(p => p.stud_type?.includes('TF') || p.name.toLowerCase().includes('сороконіж'))
+  if (filters.value.mainCategory === 'Взуття') {
+    res = res.filter(p => ['Бутси', 'Футзалки', 'Сороконіжки'].includes(p.category_name))
+    if (filters.value.shoeType) {
+      res = res.filter(p => p.category_name === filters.value.shoeType)
     }
-  }
-  else if (answers.value.type === 'ball') {
-    filtered = filtered.filter(p => p.category_name?.toLowerCase().includes('м\'яч') || p.category_name?.toLowerCase().includes('мяч'))
-  }
-  else if (answers.value.type === 'accessories') {
-    filtered = filtered.filter(p => p.category_name?.toLowerCase().includes('гетри') || p.category_name?.toLowerCase().includes('форм'))
+  } else if (filters.value.mainCategory) {
+    res = res.filter(p => p.category_name === filters.value.mainCategory)
   }
 
-  // 2. Фільтруємо за БРЕНДОМ (якщо обрано конкретний)
-  if (answers.value.brand !== 'any') {
-    const brandFiltered = filtered.filter(p => p.name.toLowerCase().includes(answers.value.brand.toLowerCase()))
+  return res
+})
 
-    // РОЗУМНА ПЕРЕВІРКА: Якщо такого бренду для цього покриття немає,
-    // ми не видаємо пустий екран, а залишаємо попередній список (інші бренди для цього покриття)
-    if (brandFiltered.length > 0) {
-      filtered = brandFiltered
-    }
-  }
+// Динамічні бренди: тільки ті, що є в наявності після попередніх кроків
+const availableBrands = computed(() => {
+  return topBrands.filter(brand =>
+    matchingProducts.value.some(p => p.name.toLowerCase().includes(brand.toLowerCase()))
+  )
+})
 
-  // 3. З того, що залишилося, обираємо найкраще (наприклад, сортуємо за ціною як показником преміальності)
-  if (filtered.length > 0) {
-    recommendedProduct.value = filtered.sort((a, b) => b.price - a.price)[0]
+
+// --- НАВІГАЦІЯ ТА ВИБІР ---
+const selectMainCategory = (category) => {
+  filters.value.mainCategory = category
+  if (category === 'Взуття') {
+    step.value = 2
   } else {
-    // Бекап-варіант, якщо взагалі нічого не підійшло
-    recommendedProduct.value = props.products[0]
+    step.value = 3
   }
+}
+
+const selectShoeType = (type) => {
+  filters.value.shoeType = type
+  step.value = 3
+}
+
+const selectBrand = (brand) => {
+  filters.value.brand = brand
+
+  // 1. Беремо копію товарів, що підійшли
+  let finalRes = [...matchingProducts.value]
+
+  // 2. Фільтруємо за брендом
+  if (brand !== 'any') {
+    finalRes = finalRes.filter(p => p.name.toLowerCase().includes(brand.toLowerCase()))
+  }
+
+  // 3. ВИБИРАЄМО 1 НАЙКРАЩИЙ ВАРІАНТ (рандомно з тих, що підійшли)
+  if (finalRes.length > 0) {
+    const randomIndex = Math.floor(Math.random() * finalRes.length)
+
+    // Діагностика в консоль (F12), щоб ти бачив, скільки товарів знайшло
+    console.log(`🤖 Алгоритм знайшов моделей: ${finalRes.length}. Випадково обрано індекс: ${randomIndex} (${finalRes[randomIndex].name})`)
+
+    recommendedProduct.value = finalRes[randomIndex]
+  } else {
+    recommendedProduct.value = null
+  }
+
+  step.value = 4
+}
+
+const resetSelector = () => {
+  filters.value = { mainCategory: '', shoeType: '', brand: '' }
+  recommendedProduct.value = null
+  step.value = 1
 }
 </script>
 
 <template>
-  <div class="modal-overlay" @click.self="emit('close')">
-    <div class="ai-panel">
+  <div class="modal-backdrop" @click.self="$emit('close')">
+    <div class="modal-glass selector-modal">
 
-      <button class="close-btn" @click="emit('close')">✕</button>
+      <button class="close-btn" @click="$emit('close')">✕</button>
 
-      <div class="ai-header">
-        <div class="ai-avatar">👋</div>
-        <h2>Твій футбольний гід</h2>
-        <p v-if="step < 4">Дай відповідь на пару питань, і я допоможу з вибором.</p>
+      <div class="modal-header">
+        <span class="bot-icon">🤖</span>
+        <h2>Розумний підбір</h2>
+        <p v-if="step < 4">Крок {{ step }} з 3</p>
+        <p v-else>Алгоритм зробив свій вибір!</p>
       </div>
 
-      <div v-if="step === 1" class="question-block">
-        <h3>Що саме ти шукаєш сьогодні?</h3>
-        <div class="options-grid">
-          <button @click="selectType('shoes')">👟 Ігрове взуття</button>
-          <button @click="selectType('ball')">⚽ Футбольний м'яч</button>
-          <button @click="selectType('accessories')">🧦 Форма та аксесуари</button>
-        </div>
-      </div>
-
-      <div v-if="step === 2 && answers.type === 'shoes'" class="question-block">
-        <h3>На якому покритті ти граєш найчастіше?</h3>
-        <div class="options-grid">
-          <button @click="selectDetail('FG')">🌱 Натуральний газон (Бутси FG)</button>
-          <button @click="selectDetail('TF')">🟢 Штучне поле (Сороконіжки TF)</button>
-          <button @click="selectDetail('IN')">🏟️ Паркет / Зал (Футзалки IN)</button>
-        </div>
-      </div>
-
-      <div v-if="step === 2 && answers.type === 'ball'" class="question-block">
-        <h3>Для кого підбираємо м'яч?</h3>
-        <div class="options-grid">
-          <button @click="selectDetail('size5')">👨 Дорослі (Розмір 5, Професійний)</button>
-          <button @click="selectDetail('size4')">👦 Діти / Юнаки (Розмір 3-4, Легкий)</button>
-        </div>
-      </div>
-
-      <div v-if="step === 2 && answers.type === 'accessories'" class="question-block">
-        <h3>Що саме тебе цікавить?</h3>
-        <div class="options-grid">
-          <button @click="selectDetail('socks')">🧦 Ігрові гетри</button>
-          <button @click="selectDetail('kit')">👕 Футбольна форма</button>
-        </div>
-      </div>
-
-      <div v-if="step === 3" class="question-block">
-        <h3>Чи є у тебе улюблений бренд?</h3>
-        <div class="options-grid brand-options">
-          <button @click="selectBrand('Nike')">✔️ Nike</button>
-          <button @click="selectBrand('Adidas')">✔️ Adidas</button>
-          <button @click="selectBrand('Puma')">✔️ Puma</button>
-          <button @click="selectBrand('Joma')">✔️ Joma</button>
-          <button @click="selectBrand('any')" class="neutral-btn">🤷 Не має значення</button>
-        </div>
-      </div>
-
-      <div v-if="step === 4" class="analyzing-block">
-        <div class="radar-spinner"></div>
-        <h3>Переглядаю каталог...</h3>
-        <p>Підбираю ідеальний варіант за твоїми критеріями</p>
-      </div>
-
-      <div v-if="step === 5" class="result-block">
-        <h3>🎯 Знайшов чудовий варіант:</h3>
-
-        <div v-if="recommendedProduct" class="rec-card">
-          <div class="rec-img">
-            <img v-if="recommendedProduct.image" :src="recommendedProduct.image" :alt="recommendedProduct.name">
-            <span v-else>⭐</span>
+      <div class="step-container">
+        <!-- КРОК 1: ЩО ШУКАЄМО? -->
+        <Transition name="slide-fade">
+          <div v-if="step === 1" class="step-content">
+            <h3>Що саме ти шукаєш?</h3>
+            <div class="options-grid">
+              <button class="option-card" @click="selectMainCategory('Взуття')">
+                <span class="emoji">👟</span>
+                <strong>Ігрове взуття</strong>
+              </button>
+              <button class="option-card" @click="selectMainCategory('Футбольна форма')">
+                <span class="emoji">👕</span>
+                <strong>Одяг / Форма</strong>
+              </button>
+              <button class="option-card" @click="selectMainCategory('М\'ячі')">
+                <span class="emoji">⚽</span>
+                <strong>М'ячі</strong>
+              </button>
+              <button class="option-card" @click="selectMainCategory('Аксесуари')">
+                <span class="emoji">🎒</span>
+                <strong>Аксесуари</strong>
+              </button>
+            </div>
           </div>
-          <div class="rec-info">
-            <h4>{{ recommendedProduct.name }}</h4>
-            <p class="rec-price">{{ recommendedProduct.price }} ₴</p>
-            <button class="add-btn" @click="emit('add-to-cart', recommendedProduct); emit('close')">
-              Беру! Додати в кошик
-            </button>
-          </div>
-        </div>
+        </Transition>
 
-        <button class="restart-btn" @click="step = 1">Почати спочатку</button>
+        <!-- КРОК 2: ТИП ПОЛЯ (Тільки для взуття) -->
+        <Transition name="slide-fade">
+          <div v-if="step === 2" class="step-content">
+            <h3>На якому покритті плануєш грати?</h3>
+
+            <!-- СПЕЦІАЛЬНА СІТКА ДЛЯ 3-Х ЕЛЕМЕНТІВ (2 зверху, 1 по центру знизу) -->
+            <div class="options-grid-centered">
+              <button class="option-card" @click="selectShoeType('Бутси')">
+                <span class="emoji">🌱</span>
+                <strong>Натуральний газон</strong>
+                <span class="sub">Бутси (FG/SG)</span>
+              </button>
+              <button class="option-card" @click="selectShoeType('Сороконіжки')">
+                <span class="emoji">🌿</span>
+                <strong>Штучний газон</strong>
+                <span class="sub">Сороконіжки (TF)</span>
+              </button>
+              <button class="option-card" @click="selectShoeType('Футзалки')">
+                <span class="emoji">🪵</span>
+                <strong>Паркет / Асфальт</strong>
+                <span class="sub">Футзалки (IC/IN)</span>
+              </button>
+            </div>
+
+            <button class="back-link" @click="step = 1">← Назад</button>
+          </div>
+        </Transition>
+
+        <!-- КРОК 3: БРЕНД -->
+        <Transition name="slide-fade">
+          <div v-if="step === 3" class="step-content">
+            <h3>Чи є улюблений бренд?</h3>
+
+            <div v-if="availableBrands.length === 0" class="no-brands-msg">
+              На жаль, за цими критеріями зараз немає товарів 😔
+            </div>
+
+            <!-- БРЕНДИ СТОВПЧИКОМ -->
+            <div v-else class="brands-column">
+              <button
+                v-for="brand in availableBrands"
+                :key="brand"
+                class="brand-btn"
+                @click="selectBrand(brand)"
+              >
+                {{ brand }}
+              </button>
+              <button class="brand-btn any-btn" @click="selectBrand('any')">
+                Не має значення
+              </button>
+            </div>
+
+            <button class="back-link" @click="filters.mainCategory === 'Взуття' ? step = 2 : step = 1">← Назад</button>
+          </div>
+        </Transition>
+
+<!-- КРОК 4: РЕЗУЛЬТАТ (ЄДИНА ПРОПОЗИЦІЯ) -->
+        <Transition name="slide-fade">
+          <div v-if="step === 4" class="step-content results-step">
+
+            <div v-if="!recommendedProduct" class="empty-result">
+              <span class="emoji">🕵️‍♂️</span>
+              <h3>Нічого не знайдено</h3>
+              <p>На жаль, моделі за твоїми критеріями закінчились.</p>
+              <button class="reset-btn" @click="resetSelector">Спробувати ще раз</button>
+            </div>
+
+            <div v-else class="best-match-container">
+              <div class="match-badge">🎯 Ідеальний збіг</div>
+              <div class="best-match-card">
+                <div class="img-wrapper">
+                  <!-- ПЛАШКА АКЦІЇ ДЛЯ БОТА -->
+                  <span v-if="recommendedProduct.is_promo" class="promo-tag-bot">-20%</span>
+
+                  <img v-if="recommendedProduct.image" :src="recommendedProduct.image" :alt="recommendedProduct.name" class="main-p-img">
+                  <span v-else class="img-placeholder">👟</span>
+                </div>
+
+                <div class="p-info">
+                  <h4 class="p-name">{{ recommendedProduct.name }}</h4>
+                  <p class="p-category">{{ recommendedProduct.category_name }}</p>
+
+                  <!-- ЦІНА ЗІ ЗНИЖКОЮ -->
+                  <div class="price-col-bot">
+                    <span v-if="recommendedProduct.is_promo" class="old-price-bot">{{ recommendedProduct.original_price }} ₴</span>
+                    <span class="p-price" :style="recommendedProduct.is_promo ? 'color: #ef4444' : ''">
+                      {{ recommendedProduct.price }} ₴
+                    </span>
+                  </div>
+                </div>
+
+                <button class="add-big-btn" @click="$emit('add-to-cart', recommendedProduct)">
+                  Додати до кошика
+                </button>
+              </div>
+            </div>
+
+            <button v-if="recommendedProduct" class="back-link mt-2" @click="resetSelector">↻ Підібрати щось інше</button>
+          </div>
+        </Transition>
       </div>
 
     </div>
@@ -178,76 +240,124 @@ const analyzeAndRecommend = () => {
 </template>
 
 <style scoped>
-.modal-overlay {
+.modal-backdrop {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(10px);
-  display: flex; justify-content: center; align-items: center; z-index: 9999;
+  background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center; z-index: 999999;
 }
 
-.ai-panel {
-  background: white; width: 90%; max-width: 600px;
-  border-radius: 32px; padding: 40px; box-shadow: 0 25px 50px rgba(0,0,0,0.2);
-  position: relative; animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes popIn {
-  0% { opacity: 0; transform: scale(0.9); }
-  100% { opacity: 1; transform: scale(1); }
+.selector-modal {
+  background: white; border-radius: 32px; padding: 40px;
+  width: 90%; max-width: 550px; max-height: 90vh; overflow-y: auto;
+  position: relative; box-shadow: 0 30px 60px rgba(0,0,0,0.15);
 }
 
 .close-btn {
   position: absolute; top: 20px; right: 20px; background: #f1f5f9;
   border: none; width: 40px; height: 40px; border-radius: 50%;
-  font-size: 1.2rem; cursor: pointer; transition: 0.2s; color: #64748b;
+  font-size: 1.2rem; cursor: pointer; color: #64748b; transition: 0.3s;
 }
-.close-btn:hover { background: #ef4444; color: white; transform: rotate(90deg); }
+.close-btn:hover { background: #fee2e2; color: #ef4444; }
 
-.ai-header { text-align: center; margin-bottom: 30px; }
-.ai-avatar { font-size: 4rem; display: inline-block; animation: float 3s ease-in-out infinite; filter: drop-shadow(0 10px 15px rgba(99, 102, 241, 0.15)); }
+.modal-header { text-align: center; margin-bottom: 30px; border-bottom: 2px dashed #e2e8f0; padding-bottom: 20px; }
+.bot-icon { font-size: 3rem; display: block; margin-bottom: 10px; }
+.modal-header h2 { margin: 0 0 5px 0; color: #0f172a; font-weight: 900; }
+.modal-header p { margin: 0; color: #6366f1; font-weight: 800; text-transform: uppercase; font-size: 0.85rem; }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+.step-container { position: relative; min-height: 280px; }
+.step-content { width: 100%; text-align: center; }
+.step-content h3 { margin-bottom: 25px; color: #1e293b; font-weight: 800; font-size: 1.3rem; }
+
+/* СТАНДАРТНА СІТКА НА 2 КОЛОНКИ (Для 4 елементів на Кроці 1) */
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+/* СПЕЦІАЛЬНА СІТКА ДЛЯ КРОКУ 2 (3 елементи: 2 зверху, 1 по центру знизу) */
+.options-grid-centered {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 15px;
+}
+.options-grid-centered .option-card {
+  width: calc(50% - 7.5px); /* Займає рівно половину, щоб бути як у сітці */
 }
 
-.ai-header h2 { margin: 10px 0 5px 0; font-size: 1.8rem; font-weight: 900; color: #0f172a; }
-.ai-header p { color: #64748b; margin: 0; }
-
-.question-block h3 { text-align: center; font-size: 1.3rem; margin-bottom: 20px; color: #1e293b; }
-
-.options-grid { display: flex; flex-direction: column; gap: 15px; }
-.options-grid button {
-  background: white; border: 2px solid #e2e8f0; padding: 18px 25px;
-  border-radius: 20px; font-size: 1.1rem; font-weight: 700; color: #334155;
-  cursor: pointer; transition: 0.3s; text-align: left;
+.option-card {
+  background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 20px;
+  padding: 20px 15px; cursor: pointer; transition: all 0.3s ease;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
 }
-.options-grid button:hover { border-color: #6366f1; background: #e0e7ff; color: #4f46e5; transform: translateX(10px); }
+.option-card:hover { border-color: #6366f1; background: white; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(99, 102, 241, 0.1); }
+.option-card .emoji { font-size: 2.5rem; }
+.option-card strong { font-size: 1.1rem; color: #0f172a; }
+.option-card .sub { font-size: 0.85rem; color: #64748b; font-weight: 600; }
 
-/* Спеціальний стиль для сітки брендів */
-.brand-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.brand-options button { padding: 15px; text-align: center; }
-.brand-options .neutral-btn { grid-column: 1 / -1; background: #f8fafc; border-style: dashed; }
-.brand-options .neutral-btn:hover { background: #f1f5f9; border-color: #94a3b8; color: #475569; transform: none; }
-
-/* АНАЛІЗУВАННЯ */
-.analyzing-block { text-align: center; padding: 40px 0; }
-.radar-spinner {
-  width: 80px; height: 80px; border: 4px solid #e0e7ff; border-top-color: #6366f1;
-  border-radius: 50%; margin: 0 auto 20px; animation: spin 1s linear infinite;
+/* БРЕНДИ СТОВПЧИКОМ */
+.brands-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 280px;
+  margin: 0 auto;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+.brand-btn {
+  background: white; border: 2px solid #e2e8f0; padding: 14px 24px;
+  border-radius: 14px; font-weight: 800; font-size: 1.05rem; color: #0f172a;
+  cursor: pointer; transition: 0.3s; width: 100%;
+}
+.brand-btn:hover { border-color: #0f172a; background: #0f172a; color: white; transform: translateY(-2px); }
+.any-btn { border-color: #6366f1; color: #6366f1; }
+.any-btn:hover { background: #6366f1; border-color: #6366f1; color: white; }
 
-/* РЕЗУЛЬТАТ */
-.result-block h3 { text-align: center; color: #10b981; font-size: 1.5rem; margin-bottom: 25px; }
-.rec-card { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 24px; padding: 20px; display: flex; gap: 20px; align-items: center; margin-bottom: 20px; }
-.rec-img { width: 120px; height: 120px; background: white; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 3rem; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
-.rec-img img { width: 100%; height: 100%; object-fit: contain; padding: 10px; }
-.rec-info h4 { margin: 0 0 10px 0; font-size: 1.2rem; font-weight: 800; color: #0f172a; }
-.rec-price { font-size: 1.5rem; font-weight: 900; color: #6366f1; margin: 0 0 15px 0; }
+.back-link { margin-top: 30px; background: none; border: none; color: #94a3b8; font-weight: 700; cursor: pointer; transition: 0.2s; }
+.back-link:hover { color: #0f172a; }
 
-.add-btn { background: #0f172a; color: white; border: none; padding: 12px 20px; border-radius: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; width: 100%; }
-.add-btn:hover { background: #00ff88; color: #0f172a; }
+/* СТИЛЬ ДЛЯ ЄДИНОЇ ПРОПОЗИЦІЇ (BEST MATCH) */
+.best-match-container {
+  position: relative;
+  margin: 25px auto 0;
+  max-width: 320px;
+}
+.match-badge {
+  position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+  background: #6366f1; color: white; padding: 6px 18px; border-radius: 20px;
+  font-weight: 800; font-size: 0.85rem; z-index: 2;
+  box-shadow: 0 5px 15px rgba(99, 102, 241, 0.3);
+}
+.best-match-card {
+  background: white; border: 2px solid #e2e8f0; border-radius: 28px;
+  padding: 35px 25px 25px; text-align: center; transition: 0.3s;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+}
+.best-match-card:hover { border-color: #6366f1; transform: translateY(-5px); box-shadow: 0 20px 40px rgba(99, 102, 241, 0.15); }
 
-.restart-btn { width: 100%; background: transparent; border: none; color: #94a3b8; font-weight: 700; cursor: pointer; padding: 10px; }
-.restart-btn:hover { color: #64748b; text-decoration: underline; }
+.img-wrapper { height: 160px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+.main-p-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.img-placeholder { font-size: 4rem; }
+
+.p-name { font-size: 1.3rem; font-weight: 900; color: #0f172a; margin: 0 0 5px 0; line-height: 1.3; }
+.p-category { color: #64748b; font-size: 0.95rem; margin: 0 0 15px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.p-price { display: block; font-size: 1.8rem; font-weight: 900; color: #0f172a; margin-bottom: 25px; }
+
+.add-big-btn {
+  width: 100%; background: #0f172a; color: white; border: none;
+  padding: 16px; border-radius: 16px; font-weight: 800; font-size: 1.05rem;
+  cursor: pointer; transition: 0.3s; box-shadow: 0 10px 20px rgba(15, 23, 42, 0.15);
+}
+.add-big-btn:hover { background: #00ff88; color: #0f172a; transform: translateY(-2px); box-shadow: 0 15px 25px rgba(0, 255, 136, 0.3); }
+
+.empty-result .emoji { font-size: 4rem; display: block; margin-bottom: 15px; }
+.reset-btn { margin-top: 20px; background: #f1f5f9; color: #0f172a; border: none; padding: 12px 24px; border-radius: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; }
+.reset-btn:hover { background: #e2e8f0; }
+
+.mt-2 { margin-top: 15px; }
+
+/* АНІМАЦІЯ ПЕРЕХОДІВ МІЖ КРОКАМИ */
+.slide-fade-enter-active, .slide-fade-leave-active { transition: all 0.3s ease; position: absolute; width: 100%; }
+.slide-fade-enter-from { opacity: 0; transform: translateX(30px); }
+.slide-fade-leave-to { opacity: 0; transform: translateX(-30px); }
+
+.promo-tag-bot { position: absolute; top: 15px; right: 15px; background: #ef4444; color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 900; z-index: 2; box-shadow: 0 4px 10px rgba(239,68,68,0.3); }
+.price-col-bot { display: flex; flex-direction: column; align-items: center; margin-bottom: 25px; }
+.old-price-bot { text-decoration: line-through; color: #94a3b8; font-size: 1rem; font-weight: 800; line-height: 1; margin-bottom: 5px; }
 </style>

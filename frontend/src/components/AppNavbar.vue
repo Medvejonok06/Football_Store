@@ -113,15 +113,31 @@ const handleLogout = () => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 5px 15px;
+  padding: 5px 20px; /* Трохи ширші відступи, як у кнопок */
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 14px; /* Такий самий радіус, як у кнопок */
+  border: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;
+  height: 46px; /* Висота як у кнопок навігації */
 }
 
 .user-pill:hover { border-color: rgba(255, 255, 255, 0.2); }
 
-.user-prefix { color: #64748b; font-size: 0.6rem; font-weight: 800; }
-.user-name { color: white; font-weight: 800; font-size: 0.9rem; }
+.user-details {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.user-prefix {
+  color: #94a3b8; /* Сірий колір, точно як у "Про нас" */
+  font-size: 1rem; /* Стандартний розмір */
+  font-weight: 800;
+}
+
+.user-name {
+  color: white;
+  font-size: 1rem; /* Стандартний розмір */
+  font-weight: 800;
+}
 </style>

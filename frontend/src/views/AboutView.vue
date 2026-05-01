@@ -40,33 +40,58 @@ const router = useRouter()
           </div>
         </div>
 
-        <!-- 2. ЗВ'ЯЗОК З НАМИ -->
-        <div class="glass-card contacts-block">
-          <h3 class="section-title">Зв'язок з нами</h3>
-          <div class="contact-mini-list">
-            <div class="mini-item clickable-border">
-              <span class="m-icon">📞</span>
-              <div class="m-content">
-                <label>Телефон</label>
-                <strong>+380 (99) 123-45-67</strong>
-              </div>
-            </div>
-            <div class="mini-item clickable-border">
-              <span class="m-icon">📧</span>
-              <div class="m-content">
-                <label>Email</label>
-                <strong>support@footballpro.ua</strong>
-              </div>
-            </div>
-            <div class="mini-item clickable-border">
-              <span class="m-icon">📍</span>
-              <div class="m-content">
-                <label>Адреса</label>
-                <strong>м. Чернівці, вул. Університетська, 28</strong>
-              </div>
-            </div>
-          </div>
-        </div>
+<!-- 2. ЗВ'ЯЗОК З НАМИ -->
+<div class="glass-card contacts-block">
+  <div class="card-header">
+    <span class="icon-glow">💬</span>
+    <h2>Зв'язок з нами</h2>
+  </div>
+
+  <div class="contact-mini-list">
+    <div class="mini-item clickable-border">
+      <span class="m-icon">📞</span>
+      <div class="m-content">
+        <label>Телефон</label>
+        <strong>+380 (99) 123-45-67</strong>
+      </div>
+    </div>
+    <div class="mini-item clickable-border">
+      <span class="m-icon">📧</span>
+      <div class="m-content">
+        <label>Email</label>
+        <strong>support@footballpro.ua</strong>
+      </div>
+    </div>
+    <div class="mini-item clickable-border">
+      <span class="m-icon">📍</span>
+      <div class="m-content">
+        <label>Адреса</label>
+        <strong>м. Чернівці, вул. Університетська, 28</strong>
+      </div>
+    </div>
+  </div>
+
+<!-- НОВИЙ БЛОК: Соцмережі -->
+<div class="socials-wrapper">
+  <a href="https://t.me/footballs_bears" target="_blank" rel="noopener noreferrer" class="soc-item clickable-border">
+    <span class="soc-icon">✈️</span>
+    <strong>Telegram</strong>
+  </a>
+  <a href="https://www.instagram.com/footballs_bear/" target="_blank" rel="noopener noreferrer" class="soc-item clickable-border">
+    <span class="soc-icon">📸</span>
+    <strong>Instagram</strong>
+  </a>
+</div>
+
+<div class="support-status">
+    <div class="pulse-dot"></div>
+    <div class="status-text">
+      <strong>Оперативний зв'язок</strong>
+      <span>Передзвонюємо протягом 15 хв для підтвердження деталей замовлення</span>
+    </div>
+  </div>
+
+</div>
 
         <!-- 3. ГРАФІК РОБОТИ -->
         <div class="glass-card schedule-block">
@@ -101,7 +126,8 @@ const router = useRouter()
         </div>
       </div>
 
-      <div class="actions">
+      <!-- ФУТЕР З КНОПКОЮ -->
+      <div class="about-footer">
         <button class="back-btn" @click="router.push('/')">Повернутись до покупок</button>
       </div>
     </div>
@@ -116,7 +142,7 @@ const router = useRouter()
 .hero-title span { color: #6366f1; text-shadow: 0 0 30px rgba(99, 102, 241, 0.4); }
 .hero-subtitle { color: #94a3b8; font-size: 1.25rem; max-width: 700px; margin: 0 auto; line-height: 1.6; }
 
-.about-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; width: 100%; }
+.about-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; width: 100%; margin-bottom: 50px; } /* Додав margin-bottom */
 .glass-card { background: rgba(17, 24, 39, 0.9); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 32px; padding: 40px; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4); }
 .glass-card:hover { border-color: #00ff88; transform: translateY(-5px); transition: 0.3s; }
 
@@ -135,8 +161,126 @@ const router = useRouter()
 .tech-tags { display: flex; gap: 12px; margin-top: auto; flex-wrap: wrap; }
 .t-badge { padding: 8px 16px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 12px; color: #6366f1; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; }
 
-.back-btn { background: #fff; color: #000; border: none; padding: 18px 45px; border-radius: 20px; font-weight: 900; cursor: pointer; transition: 0.3s; }
-.back-btn:hover { background: #00ff88; box-shadow: 0 0 25px rgba(0, 255, 136, 0.5); }
+/* СТИЛІ ФУТЕРА ТА КНОПКИ */
+.about-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding-top: 20px; /* Відступ від сітки */
+}
+
+.back-btn {
+  background: #00ff88; /* Зробив зеленою, як на твоєму скріні */
+  color: #000;
+  border: none;
+  padding: 18px 45px;
+  border-radius: 20px;
+  font-weight: 900;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.back-btn:hover {
+  box-shadow: 0 0 25px rgba(0, 255, 136, 0.5);
+  transform: translateY(-2px);
+}
+
+/* Робимо так, щоб заголовок "Зв'язок з нами" виглядав як "Наша історія" */
+.card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 25px; }
+.card-header h2 { margin: 0; font-size: 1.8rem; font-weight: 800; color: white; }
+.icon-glow { font-size: 1.5rem; }
+
+/* Виправляємо злипання тексту (Телефон і номер будуть один під одним) */
+.m-content { display: flex; flex-direction: column; gap: 4px; }
+.m-content label { color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 800; }
+.m-content strong { color: white; font-size: 1rem; }
+
+/* Стилі для нового блоку соцмереж */
+.socials-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-top: 20px;
+  padding-top: 25px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+
+.soc-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  color: white !important; /* Робимо текст білим */
+  text-decoration: none !important; /* Прибираємо підкреслення */
+}
+
+.soc-item:hover {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.05);
+}
+
+/* Стилі для кнопки підтримки */
+.support-btn {
+  margin-top: 20px;
+  width: 100%;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #818cf8;
+  padding: 16px;
+  border-radius: 16px;
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.support-btn:hover {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: #6366f1;
+  color: white;
+  transform: translateY(-2px);
+}
+
+.support-status {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 25px;
+  padding: 15px;
+  background: rgba(0, 255, 136, 0.05); /* Легкий зелений фон */
+  border: 1px solid rgba(0, 255, 136, 0.2);
+  border-radius: 16px;
+}
+
+.pulse-dot {
+  width: 12px;
+  height: 12px;
+  background-color: #00ff88;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7);
+  animation: pulse 2s infinite;
+  flex-shrink: 0;
+}
+
+.status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.status-text strong { color: #00ff88; font-size: 0.9rem; font-weight: 800; }
+.status-text span { color: #94a3b8; font-size: 0.8rem; }
+
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); }
+}
 
 @media (max-width: 1024px) { .about-grid { grid-template-columns: 1fr; } }
 </style>

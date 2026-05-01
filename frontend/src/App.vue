@@ -54,14 +54,14 @@ const handleLogout = () => {
             </button>
           </div>
 
-          <div v-else class="user-profile-badge">
-            <span class="user-emoji">😎</span>
-            <div class="user-data">
-              <span class="greet">ПРИВІТ,</span>
-              <span class="name">{{ authStore.username }}</span>
-            </div>
-            <button @click="showLogoutConfirm = true" class="exit-btn">➔</button>
-          </div>
+<div v-else class="user-profile-badge">
+  <span class="user-emoji">😎</span>
+  <div class="user-data">
+    <span class="greet">Привіт,&nbsp;</span>
+    <span class="name">{{ authStore.username }}</span>
+  </div>
+  <button @click="showLogoutConfirm = true" class="exit-btn">➔</button>
+</div>
 
           <router-link to="/checkout" class="action-btn cart-btn">
             <span class="icon">🛒</span> Кошик

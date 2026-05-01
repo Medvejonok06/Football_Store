@@ -123,4 +123,35 @@ onMounted(() => {
   opacity: 0;
   transform: scale(0.7) translateY(-20px);
 }
+
+.notification {
+  /* ФІКСУЄМО ПОВЕРХ УСЬОГО */
+  position: fixed;
+  top: 30px; /* Відступ зверху */
+  right: 30px; /* Відступ справа (або left: 50%; transform: translateX(-50%); для центру) */
+  z-index: 999999 !important; /* !important гарантує, що хедер його не перекриє */
+
+  /* КРАСИВИЙ ТЕМНИЙ СТИЛЬ (GLASSMORPHISM) */
+  background: rgba(17, 24, 39, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  border-radius: 16px;
+  padding: 16px 24px;
+  color: white;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 255, 136, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 300px;
+}
+.progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background: #00ff88;
+  border-bottom-left-radius: 16px;
+  box-shadow: 0 0 10px #00ff88;
+}
+
 </style>

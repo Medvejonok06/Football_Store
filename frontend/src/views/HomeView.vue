@@ -4,13 +4,17 @@ import axios from 'axios'
 import { useCartStore } from '../stores/cart'
 import SmartSelector from '../components/SmartSelector.vue'
 import AppNotification from '../components/AppNotification.vue'
+import AddToCartModal from '../components/AddToCartModal.vue'
 
+// --- ДАНІ ТА СТАН ---
 const products = ref([])
 const categories = ref([])
 const selectedCategory = ref(null)
 const isSelectorOpen = ref(false)
 const cartStore = useCartStore()
+const isLoading = ref(true)
 
+// --- ФІЛЬТРАЦІЯ ТА СОРТУВАННЯ ---
 const searchQuery = ref('')
 const minPrice = ref(null)
 const maxPrice = ref(null)
@@ -18,9 +22,7 @@ const selectedBrands = ref([])
 const sortBy = ref('default')
 const isSortOpen = ref(false)
 
-const isLoading = ref(true)
 const topBrands = ['Nike', 'Adidas', 'Puma', 'Jordan', 'Joma']
-
 const sortOptions = {
   'default': 'За замовчуванням',
   'price-asc': 'Найдешевші',
@@ -28,6 +30,9 @@ const sortOptions = {
   'name': 'За назвою (А-Я)'
 }
 
+// --- СТАН ДЛЯ МОДАЛКИ ТА СПОВІЩЕНЬ ---
+const showModal = ref(false)
+const lastAddedProduct = ref(null)
 const notification = ref({ show: false, message: '', type: 'success' })
 
 const showToast = (msg, type = 'success') => {
@@ -39,11 +44,32 @@ const showToast = (msg, type = 'success') => {
   }, 10)
 }
 
+// --- КРОК 1: ВІДКРИТТЯ ВИБОРУ РОЗМІРУ ---
 const handleAddToCart = (product) => {
-  cartStore.addToCart(product)
-  showToast(`✅ ${product.name} додано до кошика!`, 'success')
+  // 1. Просто запам'ятовуємо товар
+  lastAddedProduct.value = product
+  // 2. Відкриваємо модалку для вибору розміру
+  showModal.value = true
 }
 
+// --- КРОК 2: ПІДТВЕРДЖЕННЯ ТА ДОДАВАННЯ В КОШИК ---
+const confirmAddingToCart = (size) => {
+  if (!lastAddedProduct.value) return
+
+  // Створюємо об'єкт товару з розміром
+  const productWithSize = {
+    ...lastAddedProduct.value,
+    selectedSize: size
+  }
+
+  // Тільки ТЕПЕР додаємо в Pinia Store
+  cartStore.addToCart(productWithSize)
+
+  // Показуємо тост (за бажанням)
+  showToast(`✅ Додано розмір ${size}`, 'success')
+}
+
+// --- ЛОГІКА АКЦІЙ ТА ЗАВАНТАЖЕННЯ ---
 const applyPromo = (prod) => {
   if (!prod || !prod.name || prod.price === undefined) return prod
   if (prod.name.toLowerCase().includes('nike')) {
@@ -73,6 +99,7 @@ onMounted(async () => {
   }
 })
 
+// --- ДОПОМІЖНІ ФУНКЦІЇ ---
 const toggleBrand = (brand) => {
   const index = selectedBrands.value.indexOf(brand)
   if (index === -1) selectedBrands.value.push(brand)
@@ -118,6 +145,7 @@ const resetFilters = () => {
 
 <template>
   <div class="prom-layout">
+    <!-- Маленьке сповіщення -->
     <AppNotification
       v-if="notification.show"
       :message="notification.message"
@@ -197,7 +225,7 @@ const resetFilters = () => {
           </div>
           <div class="sort-dropdown-wrap">
             <div class="sort-trigger" @click="isSortOpen = !isSortOpen">
-              <span class="sort-hint">Сортування:</span>
+              <span class="sort-hint">Сортування:&nbsp;</span>
               <strong>{{ sortOptions[sortBy] }}</strong>
               <span class="arrow" :class="{ open: isSortOpen }">⌄</span>
             </div>
@@ -217,7 +245,6 @@ const resetFilters = () => {
           <p>Завантаження асортименту...</p>
         </div>
 
-        <!-- 3 ТОВАРИ В РЯД -->
         <div v-else class="product-grid">
           <div v-for="product in filteredProducts" :key="product.id" class="product-card glass-card">
             <router-link :to="'/product/' + product.id" class="card-inner">
@@ -233,7 +260,6 @@ const resetFilters = () => {
                     <span v-if="product.is_promo" class="old-price">{{ product.original_price }} ₴</span>
                     <span class="main-price" :class="{ promo: product.is_promo }">{{ product.price }} ₴</span>
                   </div>
-                  <button class="add-btn" @click.prevent="handleAddToCart(product)">+</button>
                 </div>
               </div>
             </router-link>
@@ -242,7 +268,15 @@ const resetFilters = () => {
       </main>
     </div>
 
+    <!-- Модалки -->
     <SmartSelector v-if="isSelectorOpen" :products="products" @close="isSelectorOpen = false" @add-to-cart="handleAddToCart" />
+
+    <AddToCartModal
+      v-if="showModal"
+      :product="lastAddedProduct"
+      @close="showModal = false"
+      @confirm-add="confirmAddingToCart"
+    />
   </div>
 </template>
 
@@ -253,7 +287,7 @@ const resetFilters = () => {
   --border: rgba(255, 255, 255, 0.12);
 }
 
-/* 1. ПРИБИРАЄМО СТРІЛКИ В ІНПУТАХ */
+/* Прибираємо стрілки в інпутах */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -264,7 +298,6 @@ input[type=number] { -moz-appearance: textfield; }
 .prom-layout { max-width: 1400px; margin: 0 auto; padding: 20px; color: #f3f4f6; }
 .layout-grid { display: grid; grid-template-columns: 320px 1fr; gap: 30px; align-items: start; }
 
-/* 2. БАЗОВІ СКЛЯНІ КАРТКИ */
 .glass-card {
   background: rgba(17, 24, 39, 0.85);
   backdrop-filter: blur(25px);
@@ -273,7 +306,6 @@ input[type=number] { -moz-appearance: textfield; }
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
-/* 3. SIDEBAR (ПОВНИЙ СКРОЛ) */
 .sticky-sidebar {
   position: sticky;
   top: 100px;
@@ -293,7 +325,6 @@ input[type=number] { -moz-appearance: textfield; }
 .scroll-container::-webkit-scrollbar { width: 4px; }
 .scroll-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 
-/* 4. КЛІКАБЕЛЬНІ ЕЛЕМЕНТИ ТА РАМКИ */
 .clickable-border {
   border: 1.5px solid var(--border);
   border-radius: 14px;
@@ -306,7 +337,6 @@ input[type=number] { -moz-appearance: textfield; }
   background: rgba(0, 255, 136, 0.05);
 }
 
-/* АКТИВНИЙ СТАН (БРЕНДИ + КАТЕГОРІЇ) */
 .active-selection {
   border-color: var(--neon) !important;
   background: rgba(0, 255, 136, 0.1) !important;
@@ -314,8 +344,11 @@ input[type=number] { -moz-appearance: textfield; }
   box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
 }
 
-/* 5. ВИПРАВЛЕННЯ СОРТУВАННЯ (БЕЗ КРАПОК) */
-.sort-dropdown-wrap { position: relative; min-width: 280px; }
+.sort-dropdown-wrap {
+  position: relative;
+  min-width: 280px;
+  z-index: 999;
+}
 
 .sort-trigger {
   background: rgba(0, 0, 0, 0.2);
@@ -333,10 +366,10 @@ input[type=number] { -moz-appearance: textfield; }
   top: calc(100% + 10px);
   right: 0;
   width: 100%;
-  z-index: 100;
+  z-index: 9999 !important;
   padding: 10px !important;
   margin: 0 !important;
-  list-style: none !important; /* ВИДАЛЯЄМО КРАПКИ */
+  list-style: none !important;
 }
 
 .sort-menu li {
@@ -345,12 +378,11 @@ input[type=number] { -moz-appearance: textfield; }
   font-weight: 700;
   color: #94a3b8;
   transition: 0.2s;
-  list-style-type: none !important; /* ДУБЛЮЄМО ДЛЯ ГАРАНТІЇ */
+  list-style-type: none !important;
 }
 .sort-menu li:hover { background: rgba(255, 255, 255, 0.05); color: white; }
 .sort-menu li.active { background: var(--indigo); color: white; }
 
-/* 6. СІТКА ТОВАРІВ (3 В РЯД) */
 .product-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -374,7 +406,6 @@ input[type=number] { -moz-appearance: textfield; }
 .image-wrapper img { max-width: 85%; max-height: 85%; object-fit: contain; transition: 0.5s; }
 .product-card:hover img { transform: scale(1.1) rotate(-3deg); }
 
-/* ПЛАШКИ ТЕГІВ */
 .promo-tag {
   position: absolute;
   top: 8px;
@@ -401,9 +432,19 @@ input[type=number] { -moz-appearance: textfield; }
   text-transform: uppercase;
 }
 
-/* 7. ІНШІ СТИЛІ */
 .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-.reset-btn-top { background: rgba(239, 68, 68, 0.05); color: #ef4444; padding: 6px 12px; font-weight: 700; font-size: 0.8rem; }
+.reset-btn-top {
+  background: rgba(255, 26, 26, 0.08);
+  color: #ff1a1a;
+  padding: 8px 16px;
+  font-weight: 800;
+  font-size: 1.2rem;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+.reset-btn-top:hover { background: rgba(255, 26, 26, 0.15); transform: scale(1.05); }
 
 .filter-group { margin-bottom: 30px; }
 .group-label { display: block; font-size: 0.8rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 15px; }
@@ -412,21 +453,51 @@ input[type=number] { -moz-appearance: textfield; }
 .dual-inputs input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: rgba(0,0,0,0.3); color: white; font-weight: 700; text-align: center; }
 
 .brand-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.brand-btn { padding: 12px; font-weight: 800; }
+.brand-btn { padding: 12px; font-weight: 800; color: white; }
 
 .radio-list { display: flex; flex-direction: column; gap: 10px; }
-.radio-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.radio-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; color: white; }
 .radio-item input { display: none; }
 .custom-radio { width: 16px; height: 16px; border: 2px solid var(--border); border-radius: 50%; }
 .active-selection .custom-radio { border-color: var(--neon); background: var(--neon); box-shadow: 0 0 8px var(--neon); }
 
 .sidebar-footer { padding-top: 15px; border-top: 1px solid var(--border); }
-.ai-button { background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 18px; border-radius: 20px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.3s; }
+.ai-button {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  padding: 18px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: 0.3s;
+}
 
-.content-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; margin-bottom: 25px; }
-.search-bar { flex-grow: 1; position: relative; margin-right: 20px; }
+.ai-text { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.ai-text span { font-size: 0.85rem; color: rgba(255, 255, 255, 0.8); line-height: 1; }
+
+.content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 30px;
+  padding: 15px 25px;
+  margin-bottom: 25px;
+  position: relative;
+  z-index: 100;
+}
+
+.search-bar { flex-grow: 1; position: relative; min-width: 0; }
 .search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); opacity: 0.5; }
-.search-bar input { width: 100%; padding: 14px 14px 14px 45px; border-radius: 16px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: white; }
+.search-bar input {
+  width: 100%;
+  padding: 14px 14px 14px 45px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+  color: white;
+  box-sizing: border-box;
+}
 
 .card-info { padding: 0 20px 25px 20px; }
 .product-name { font-size: 1.1rem; font-weight: 800; color: white; margin-bottom: 18px; height: 2.6em; overflow: hidden; line-height: 1.3; }
@@ -437,7 +508,9 @@ input[type=number] { -moz-appearance: textfield; }
 .add-btn { width: 48px; height: 48px; border-radius: 16px; border: none; background: white; color: black; font-size: 1.6rem; font-weight: 900; cursor: pointer; }
 .add-btn:hover { background: var(--neon); transform: rotate(90deg); }
 
-/* АНІМАЦІЇ */
 .pop-enter-active, .pop-leave-active { transition: all 0.2s; }
 .pop-enter-from, .pop-leave-to { opacity: 0; transform: translateY(-10px); }
+
+.card-inner { text-decoration: none !important; color: inherit; }
+.old-price { text-decoration: line-through !important; color: #64748b; font-size: 0.85rem; font-weight: 700; }
 </style>

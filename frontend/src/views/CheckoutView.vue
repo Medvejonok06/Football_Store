@@ -60,6 +60,12 @@ const selectedCity = ref(null)
 const deliveryType = ref('branch')
 const warehouses = ref([])
 const selectedWarehouse = ref(null)
+const isWarehouseOpen = ref(false)
+
+const selectWarehouseItem = (w) => {
+  selectedWarehouse.value = w
+  isWarehouseOpen.value = false
+}
 const isLoadingWarehouses = ref(false)
 
 let debounceTimeout = null
@@ -303,10 +309,25 @@ const submitOrder = async () => {
 
           <div class="input-wrapper" v-if="selectedCity && !isLoadingWarehouses">
             <label>{{ deliveryType === 'postmat' ? 'Оберіть поштомат *' : 'Оберіть відділення *' }}</label>
-            <select v-model="selectedWarehouse" class="modern-select">
-              <option :value="null" disabled>Оберіть зі списку...</option>
-              <option v-for="w in filteredWarehouses" :key="w.Ref" :value="w">{{ w.Description }}</option>
-            </select>
+            <div class="custom-select-wrapper">
+  <div class="custom-select-trigger" @click="isWarehouseOpen = !isWarehouseOpen" :class="{ 'is-open': isWarehouseOpen }">
+    <span class="selected-text">{{ selectedWarehouse ? selectedWarehouse.Description : 'Оберіть зі списку...' }}</span>
+    <span class="arrow">▼</span>
+  </div>
+
+  <Transition name="fade">
+    <ul v-if="isWarehouseOpen" class="custom-options-list">
+      <li
+        v-for="w in filteredWarehouses"
+        :key="w.Ref"
+        @click="selectWarehouseItem(w)"
+        :class="{ 'selected': selectedWarehouse?.Ref === w.Ref }"
+      >
+        {{ w.Description }}
+      </li>
+    </ul>
+  </Transition>
+</div>
           </div>
         </section>
       </div>
@@ -317,9 +338,15 @@ const submitOrder = async () => {
           <div class="items-list">
             <div class="summary-item" v-for="item in cartStore.items" :key="item.id">
               <div class="item-info">
-                <span class="item-name">{{ item.name }}</span>
-                <span class="item-qty">x{{ item.quantity || 1 }}</span>
-              </div>
+  <span class="item-name">{{ item.name }}</span>
+  <span class="item-meta">
+    <span class="item-qty">x{{ item.quantity || 1 }}</span>
+    <!-- Виводимо розмір, якщо він є в товарі -->
+    <span v-if="item.size || item.selectedSize" class="item-size">
+      • Розмір: {{ item.size || item.selectedSize }}
+    </span>
+  </span>
+</div>
 
               <div class="item-price-actions">
                 <span class="item-price">{{ item.price * (item.quantity || 1) }} ₴</span>
@@ -349,120 +376,65 @@ const submitOrder = async () => {
 </template>
 
 <style scoped>
-/* СТИЛІ ДЛЯ НОВОГО МОДАЛЬНОГО ВІКНА ПО ЦЕНТРУ */
+/* --- МОДАЛЬНЕ ВІКНО УСПІХУ (ТЕМНЕ СКЛО) --- */
 .modal-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999999;
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(11, 15, 25, 0.8); backdrop-filter: blur(12px);
+  display: flex; align-items: center; justify-content: center; z-index: 999999;
 }
 
 .success-modal {
-  background: white;
-  border-radius: 32px;
-  padding: 40px;
-  width: 90%;
-  max-width: 450px;
-  text-align: center;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.2);
-  transform: translateY(0);
+  background: rgba(17, 24, 39, 0.95); border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 32px; padding: 40px; width: 90%; max-width: 450px; text-align: center;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 255, 136, 0.1);
 }
 
 .icon-circle {
-  width: 90px;
-  height: 90px;
-  background: #e0fae9;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 3rem;
-  margin: 0 auto 20px;
+  width: 90px; height: 90px; margin: 0 auto 20px;
+  background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.3);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 3rem;
   box-shadow: 0 10px 25px rgba(0, 255, 136, 0.2);
 }
 
-.modal-title {
-  margin: 0 0 15px 0;
-  font-size: 1.6rem;
-  font-weight: 900;
-  color: #0f172a;
-}
-
-.modal-msg {
-  margin: 0 0 30px 0;
-  color: #64748b;
-  font-weight: 600;
-  font-size: 1.05rem;
-  line-height: 1.5;
-}
+.modal-title { margin: 0 0 15px 0; font-size: 1.6rem; font-weight: 900; color: white; }
+.modal-msg { margin: 0 0 30px 0; color: #94a3b8; font-weight: 600; font-size: 1.05rem; line-height: 1.5; }
 
 .ok-btn {
-  width: 100%;
-  background: #0f172a;
-  color: white;
-  border: none;
-  padding: 16px;
-  border-radius: 16px;
-  font-weight: 800;
-  font-size: 1.05rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.15);
+  width: 100%; background: white; color: #0f172a; border: none; padding: 16px; border-radius: 16px;
+  font-weight: 900; font-size: 1.05rem; cursor: pointer; transition: 0.3s;
 }
-.ok-btn:hover {
-  background: #00ff88;
-  color: #0f172a;
-  transform: translateY(-3px);
-  box-shadow: 0 15px 25px rgba(0, 255, 136, 0.3);
-}
+.ok-btn:hover { background: #00ff88; transform: translateY(-3px); box-shadow: 0 15px 25px rgba(0, 255, 136, 0.3); }
 
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-.fade-enter-from .success-modal, .fade-leave-to .success-modal { transform: scale(0.9) translateY(20px); }
+.fade-enter-active, .fade-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: scale(0.95) translateY(20px); }
 
-/* ОСНОВНІ СТИЛІ СТОРІНКИ */
-.checkout-layout { max-width: 1200px; margin: 0 auto; padding: 20px; color: #0f172a; }
+/* --- ОСНОВНІ СТИЛІ СТОРІНКИ --- */
+.checkout-layout { max-width: 1200px; margin: 0 auto; padding: 20px; color: #f3f4f6; }
 .header-simple { display: flex; align-items: center; gap: 20px; margin-bottom: 40px; }
 
+/* КНОПКА "НАЗАД" */
 .back-btn {
-  background: white;
-  border: 2px solid #e2e8f0;
-  padding: 10px 20px;
-  border-radius: 12px;
-  font-weight: 800;
-  font-size: 0.95rem;
-  color: #64748b;
-  cursor: pointer;
-  transition: 0.3s;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px 20px; border-radius: 12px; font-weight: 800; font-size: 0.95rem;
+  color: #94a3b8; cursor: pointer; transition: 0.3s;
 }
 .back-btn:hover {
-  border-color: #6366f1;
-  color: #0f172a;
-  transform: translateX(-5px);
+  border-color: #00ff88; color: #00ff88; background: rgba(0, 255, 136, 0.05); transform: translateX(-5px);
 }
 
-h1 { font-size: 2rem; font-weight: 900; color: #0f172a; margin: 0; }
+h1 { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
 
+/* --- ПОРОЖНІЙ КОШИК (GLASSMORPHISM) --- */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 32px;
-  box-shadow: 0 15px 35px rgba(0,0,0,0.05);
+  background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 32px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
 }
 
 .gradient-border { position: relative; }
 .gradient-border::before {
-  content: ""; position: absolute; inset: 0; border-radius: 32px; padding: 2px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(168, 85, 247, 0.3));
+  content: ""; position: absolute; inset: 0; border-radius: 32px; padding: 1px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(0, 255, 136, 0.4));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
@@ -473,117 +445,225 @@ h1 { font-size: 2rem; font-weight: 900; color: #0f172a; margin: 0; }
 
 .icon-box { position: relative; margin-bottom: 30px; }
 .main-icon { font-size: 6rem; position: relative; z-index: 2; display: block; animation: float 3s ease-in-out infinite; }
-.purple-glow { filter: drop-shadow(0 10px 20px rgba(168, 85, 247, 0.2)); }
+.purple-glow { filter: drop-shadow(0 10px 25px rgba(0, 255, 136, 0.3)); } /* Змінив світіння на неонове */
 
 @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
 
-.empty-title { font-size: 2.2rem; font-weight: 900; color: #0f172a; margin: 0 0 15px 0; }
-.empty-text { font-size: 1.1rem; color: #64748b; margin: 0 0 40px 0; line-height: 1.6; }
+.empty-title { font-size: 2.2rem; font-weight: 900; color: white; margin: 0 0 15px 0; }
+.empty-text { font-size: 1.1rem; color: #94a3b8; margin: 0 0 40px 0; line-height: 1.6; }
 
+/* ГОЛОВНА КНОПКА CTA */
 .return-btn {
-  background: #0f172a; color: white; border: none; padding: 18px 36px; border-radius: 18px;
-  font-weight: 800; font-size: 1.1rem; cursor: pointer; transition: all 0.3s ease;
-  display: flex; align-items: center; gap: 12px; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+  background: linear-gradient(135deg, #00ff88, #10b981); color: #0f172a; border: none;
+  padding: 18px 36px; border-radius: 18px; font-weight: 900; font-size: 1.1rem;
+  cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 10px 25px rgba(0, 255, 136, 0.3); text-transform: uppercase; letter-spacing: 0.5px;
 }
-.return-btn:hover { background: #1e293b; transform: translateY(-3px); box-shadow: 0 15px 35px rgba(15, 23, 42, 0.25); }
-.btn-arrow { opacity: 0.5; transition: 0.3s; }
-.return-btn:hover .btn-arrow { opacity: 1; transform: translateX(5px); color: #00ff88; }
+.return-btn:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(0, 255, 136, 0.5); }
+.btn-arrow { opacity: 0.7; transition: 0.3s; font-size: 1.3rem; }
+.return-btn:hover .btn-arrow { opacity: 1; transform: translateX(6px); }
 
-/* ТУТ ВИПРАВЛЕНО ЗДАВЛЕННЯ БОКОВОЇ ПАНЕЛІ (Тепер права колонка фіксована 380px) */
+/* --- ЗАПОВНЕНИЙ КОШИК (АПГРЕЙД ДЛЯ ФОРМ) --- */
 .checkout-grid { display: grid; grid-template-columns: 1fr 380px; gap: 40px; }
 
-.checkout-card { background: white; padding: 30px; border-radius: 24px; border: 2px solid #f1f5f9; margin-bottom: 20px;}
+.checkout-card {
+  background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(10px);
+  padding: 30px; border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 20px;
+}
 
-.card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
-.step-num { width: 32px; height: 32px; background: #0f172a; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+.card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 25px; }
+.card-header h2 { color: white; margin: 0; }
+.step-num { width: 32px; height: 32px; background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; }
 
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
 .input-wrapper { display: flex; flex-direction: column; gap: 8px; position: relative; }
+.input-wrapper label { color: #cbd5e1; font-weight: 600; font-size: 0.9rem; }
 .input-wrapper input, .modern-select {
-  padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; font-family: inherit; font-size: 0.95rem; background: #f8fafc;
+  padding: 14px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
+  font-family: inherit; font-size: 0.95rem; background: rgba(0, 0, 0, 0.3); color: white; transition: 0.3s;
 }
-.input-wrapper input:focus { border-color: #6366f1; outline: none; background: white; }
+.input-wrapper input:focus, .modern-select:focus { border-color: #00ff88; outline: none; background: rgba(0, 0, 0, 0.5); box-shadow: 0 0 10px rgba(0, 255, 136, 0.1); }
+.modern-select option { background: #0f172a; color: white; }
 
 .city-dropdown {
-  position: absolute; top: 100%; left: 0; width: 100%; background: white;
-  border: 2px solid #e2e8f0; border-radius: 12px; z-index: 100; list-style: none; padding: 5px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  position: absolute; top: 100%; left: 0; width: 100%; background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; z-index: 100; list-style: none; padding: 5px; box-shadow: 0 15px 30px rgba(0,0,0,0.5); color: white;
 }
-.city-dropdown li { padding: 10px; cursor: pointer; border-radius: 8px; }
-.city-dropdown li:hover { background: #f1f5f9; }
+.city-dropdown li { padding: 10px; cursor: pointer; border-radius: 8px; transition: 0.2s; }
+.city-dropdown li:hover { background: rgba(255, 255, 255, 0.05); color: #00ff88; }
+.city-region { color: #94a3b8; font-size: 0.85rem; }
 
 .delivery-types { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
 .type-card {
-  padding: 15px; border: 2px solid #e2e8f0; border-radius: 14px; cursor: pointer;
-  display: flex; align-items: center; gap: 12px; transition: 0.3s; background: #f8fafc;
+  padding: 15px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; cursor: pointer;
+  display: flex; align-items: center; gap: 12px; transition: 0.3s; background: rgba(0, 0, 0, 0.3); color: white;
 }
-.type-card.active { border-color: #6366f1; background: #f5f7ff; }
+.type-card.active { border-color: #00ff88; background: rgba(0, 255, 136, 0.05); }
 .type-card input { display: none; }
+.type-card .text { display: flex; flex-direction: column; gap: 4px; }
+.type-card .text strong { font-size: 1.05rem; color: white; }
+.type-card .text span { font-size: 0.85rem; color: #94a3b8; }
 
-/* ТУТ ДОДАНО ВІДСТУПИ МІЖ СЛОВОМ ТА ЦІНОЮ В КАРТКАХ ДОСТАВКИ */
-.type-card .text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.type-card .text strong {
-  font-size: 1.05rem;
-  color: #0f172a;
-}
-.type-card .text span {
-  font-size: 0.85rem;
-  color: #64748b;
-}
-
-.summary-card { background: #0f172a; color: white; padding: 30px; border-radius: 24px; position: sticky; top: 20px; box-sizing: border-box; }
+/* ПРАВА КОЛОНКА (СУМА) */
+.summary-card { background: rgba(17, 24, 39, 0.9); border: 1px solid rgba(255, 255, 255, 0.12); padding: 30px; border-radius: 24px; position: sticky; top: 20px; box-sizing: border-box; backdrop-filter: blur(15px); }
+.summary-card h2 { color: white; margin-top: 0; }
 
 .items-list { margin-bottom: 20px; }
-.summary-item {
+.summary-item { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed rgba(255, 255, 255, 0.1); }
+.item-info { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.item-name { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-weight: 600; line-height: 1.4; color: white; }
+.item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-qty {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.item-size {
+  color: #00ff88; /* Робимо розмір неоново-зеленим, щоб привертав увагу */
+  font-size: 0.85rem;
+  font-weight: 800;
+  background: rgba(0, 255, 136, 0.1);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.item-price-actions { display: flex; align-items: center; gap: 12px; }
+.item-price { font-weight: 800; font-size: 1.1rem; color: white; }
+
+.remove-btn {
+  background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);
+  width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s ease;
+}
+.remove-btn:hover { background: #ef4444; color: white; transform: translateY(-2px) rotate(5deg); box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3); }
+
+.grand-total { font-size: 1.5rem; font-weight: 900; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; margin-top: 15px; display: flex; justify-content: space-between; color: white; }
+.submit-btn { width: 100%; background: #00ff88; color: #0f172a; border: none; padding: 18px; border-radius: 14px; font-weight: 900; font-size: 1.1rem; cursor: pointer; margin-top: 25px; transition: 0.3s; text-transform: uppercase; letter-spacing: 0.5px; }
+.submit-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0, 255, 136, 0.4); }
+
+/* 1. Забороняємо лівій колонці вилазити за свої межі */
+.forms-column {
+  min-width: 0;
+}
+
+/* 2. Обмежуємо ширину випадаючого списку НП */
+.modern-select {
+  width: 100%;
+  max-width: 100%;
+  text-overflow: ellipsis; /* Додає три крапки "...", якщо текст задовгий */
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* --- КАСТОМНИЙ ВИПАДАЮЧИЙ СПИСОК НП --- */
+.custom-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.custom-select-trigger {
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  color: white;
+  font-size: 0.95rem;
+  cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 15px;
-  margin-bottom: 15px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: 0.3s;
 }
-.item-info { display: flex; flex-direction: column; gap: 4px; flex: 1; }
-.item-name {
-  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2;
-  -webkit-box-orient: vertical; overflow: hidden; font-weight: 600; line-height: 1.4;
+
+.custom-select-trigger:hover, .custom-select-trigger.is-open {
+  border-color: #00ff88;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.1);
 }
-.item-qty { color: #94a3b8; font-size: 0.85rem; font-weight: 700; }
 
-.item-price-actions { display: flex; align-items: center; gap: 12px; }
-.item-price { font-weight: 800; font-size: 1.1rem; }
+.selected-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 10px;
+}
 
-.remove-btn {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.arrow {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  transition: transform 0.3s ease;
+}
+
+.custom-select-trigger.is-open .arrow {
+  transform: rotate(180deg);
+  color: #00ff88;
+}
+
+.custom-options-list {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 100%;
+  max-height: 250px;
+  overflow-y: auto;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  z-index: 1000;
+  list-style: none;
+  padding: 5px;
+  margin: 0;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+}
+
+.custom-options-list li {
+  padding: 12px 15px;
+  color: #cbd5e1;
+  font-size: 0.9rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-}
-.remove-btn:hover {
-  background: #ef4444;
-  color: white;
-  transform: translateY(-2px) rotate(5deg);
-  box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  transition: 0.2s;
+  line-height: 1.4;
 }
 
-.grand-total { font-size: 1.5rem; font-weight: 900; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; margin-top: 15px; display: flex; justify-content: space-between; }
-.submit-btn { width: 100%; background: #00ff88; color: #0f172a; border: none; padding: 18px; border-radius: 14px; font-weight: 900; font-size: 1.1rem; cursor: pointer; margin-top: 20px; transition: 0.3s; }
-.submit-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0, 255, 136, 0.3); }
+.custom-options-list li:hover {
+  background: rgba(0, 255, 136, 0.1);
+  color: #00ff88;
+}
+
+.custom-options-list li.selected {
+  background: rgba(99, 102, 241, 0.15);
+  color: white;
+  font-weight: bold;
+  border-left: 3px solid #6366f1;
+}
+
+/* Красивий скроллбар для нашого списку */
+.custom-options-list::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-options-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+.custom-options-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+.custom-options-list::-webkit-scrollbar-thumb:hover {
+  background: #00ff88;
+}
 
 @media (max-width: 900px) {
   .checkout-grid { grid-template-columns: 1fr; }
   .empty-state-container { padding: 60px 20px; }
   .empty-title { font-size: 1.8rem; }
   .return-btn { width: 100%; justify-content: center; }
+  .form-grid { grid-template-columns: 1fr; }
 }
 </style>

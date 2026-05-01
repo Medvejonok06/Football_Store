@@ -22,9 +22,12 @@ const notification = ref({
 })
 
 const showToast = (msg, type = 'success') => {
-  notification.value.message = msg
-  notification.value.type = type
-  notification.value.show = true
+  notification.value.show = false
+  setTimeout(() => {
+    notification.value.message = msg
+    notification.value.type = type
+    notification.value.show = true
+  }, 10)
 }
 
 const currentImageIndex = ref(0)
@@ -34,11 +37,10 @@ const shoeSizes = [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47]
 const clothingSizes = ['S', 'M', 'L', 'XL', 'XXL']
 const sockSizes = ['36-39', '39-42', '42-45', '45-48']
 
-// ДОПОМІЖНІ ЗМІННІ З ПЕРЕВІРКОЮ НА ПУСТІ ЗНАЧЕННЯ
+// ДОПОМІЖНІ ЗМІННІ
 const catName = computed(() => (product.value?.category_name || '').toLowerCase())
 const prodName = computed(() => (product.value?.name || '').toLowerCase())
 
-// ЛОГІКА КАТЕГОРІЙ
 const isShoeCategory = computed(() => {
   return catName.value.includes('бутси') || catName.value.includes('сороконіжки') ||
          catName.value.includes('футзалки') || catName.value.includes('взуття')
@@ -51,13 +53,11 @@ const isClothingCategory = computed(() => {
 })
 
 const isSocksCategory = computed(() => {
-  return catName.value.includes('носки') || catName.value.includes('шкарпетки') ||
-         prodName.value.includes('носки') || prodName.value.includes('шкарпетки')
+  return catName.value.includes('носки') || catName.value.includes('шкарпетки')
 })
 
 const isBallCategory = computed(() => {
-  return catName.value.includes('м\'яч') || catName.value.includes('мяч') ||
-         prodName.value.includes('м\'яч') || prodName.value.includes('мяч')
+  return catName.value.includes('м\'яч') || catName.value.includes('мяч')
 })
 
 const needsSize = computed(() => isShoeCategory.value || isClothingCategory.value || isSocksCategory.value)
@@ -71,7 +71,7 @@ const currentSizes = computed(() => {
 
 const sizeLabelText = computed(() => isShoeCategory.value ? 'Розмір (EU):' : 'Розмір:')
 
-// --- 🎁 ПРОМО-АКЦІЯ З ПЕРЕВІРКОЮ ---
+// --- 🎁 ПРОМО-АКЦІЯ ---
 const applyPromo = (prod) => {
   if (!prod || !prod.name || !prod.price) return prod
   if (prod.name.toLowerCase().includes('nike')) {
@@ -86,11 +86,7 @@ const applyPromo = (prod) => {
 }
 
 const fetchData = async () => {
-  if (!route.params.id) {
-    isLoading.value = false
-    return
-  }
-
+  if (!route.params.id) return
   isLoading.value = true
   selectedSize.value = null
   currentImageIndex.value = 0
@@ -101,18 +97,14 @@ const fetchData = async () => {
 
     const allRes = await axios.get('http://127.0.0.1:8000/api/products/')
     const allProductsRaw = Array.isArray(allRes.data) ? allRes.data : (allRes.data.results || [])
-
     similarProducts.value = allProductsRaw.filter(p => {
-      const isSameCategory = String(p.category) === String(product.value.category) ||
-                             (p.category_name && p.category_name === product.value.category_name)
+      const isSameCategory = String(p.category) === String(product.value.category)
       return isSameCategory && String(p.id) !== String(product.value.id)
-    }).map(applyPromo)
+    }).map(applyPromo).slice(0, 4)
 
   } catch (error) {
-    console.error("Помилка завантаження:", error)
     showToast('Не вдалося завантажити товар', 'error')
   } finally {
-    // isLoading ОБОВ'ЯЗКОВО має стати false тут
     isLoading.value = false
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -127,49 +119,31 @@ const allImages = computed(() => {
   if (product.value.images && product.value.images.length > 0) {
     images = images.concat(product.value.images.map(img => img.image))
   }
-  return images.filter(img => img) // прибираємо пусті
+  return images.filter(img => img)
 })
 
 const currentImage = computed(() => allImages.value[currentImageIndex.value] || '')
-
 const nextImage = () => currentImageIndex.value = (currentImageIndex.value + 1) % allImages.value.length
 const prevImage = () => currentImageIndex.value = (currentImageIndex.value - 1 + allImages.value.length) % allImages.value.length
 const setMainImage = (index) => currentImageIndex.value = index
 
-const addToCart = (itemToBuy = null, size = null) => {
-  const targetProduct = itemToBuy || product.value
-  const targetSize = size || selectedSize.value
-
-  if (!itemToBuy && !targetSize && needsSize.value) {
+const addToCart = () => {
+  if (needsSize.value && !selectedSize.value) {
     showToast('Будь ласка, оберіть розмір! 📏', 'info')
     return
   }
 
   cartStore.addToCart({
-    id: targetSize ? `${targetProduct.id}-${targetSize}` : targetProduct.id,
-    originalId: targetProduct.id,
-    name: targetProduct.name,
-    price: targetProduct.price,
-    image: targetProduct.image,
-    size: needsSize.value ? (targetSize || 'Не обрано') : (isBallCategory.value ? '5' : 'One Size'),
-    quantity: 1
+    ...product.value,
+    selectedSize: selectedSize.value || (isBallCategory.value ? '5' : 'One Size')
   })
 
-  showToast(`✅ ${targetProduct.name} додано до кошика!`, 'success')
+  showToast(`✅ ${product.value.name} додано до кошика!`, 'success')
 }
-
-const cartButtonText = computed(() => {
-  if (!needsSize.value) return 'Додати в кошик'
-  return selectedSize.value ? 'Додати в кошик' : 'Оберіть розмір'
-})
 </script>
 
 <template>
   <div class="product-page">
-    <div class="header-simple">
-      <button class="back-btn" @click="router.push('/')">← Назад до каталогу</button>
-    </div>
-
     <AppNotification
       v-if="notification.show"
       :message="notification.message"
@@ -177,86 +151,198 @@ const cartButtonText = computed(() => {
       @close="notification.show = false"
     />
 
+    <div class="header-simple">
+      <button class="back-btn" @click="router.push('/')">← Назад до каталогу</button>
+    </div>
+
     <div v-if="!isLoading && product" class="product-layout">
-      <div class="product-top-row">
-        <div class="product-gallery">
-          <div class="main-image-box">
-            <button v-if="allImages.length > 1" class="gallery-arrow prev" @click="prevImage">❮</button>
-            <img :src="currentImage" :alt="product.name" class="main-img">
-            <button v-if="allImages.length > 1" class="gallery-arrow next" @click="nextImage">❯</button>
-          </div>
-          <div class="thumbnails" v-if="allImages.length > 1">
-            <img v-for="(img, index) in allImages" :key="index" :src="img" class="thumb" :class="{ active: currentImageIndex === index }" @click="setMainImage(index)">
+      <!-- ЛІВА КОЛОНКА: ГАЛЕРЕЯ -->
+      <div class="gallery-section">
+        <div class="main-image-wrapper glass-card">
+          <div v-if="product.is_promo" class="promo-tag-big">ЮВІЛЕЙНА ЗНИЖКА -20%</div>
+          <button v-if="allImages.length > 1" class="nav-arrow prev" @click="prevImage">❮</button>
+          <img :src="currentImage" :alt="product.name" class="main-img">
+          <button v-if="allImages.length > 1" class="nav-arrow next" @click="nextImage">❯</button>
+        </div>
+        <div class="thumbnails-grid" v-if="allImages.length > 1">
+          <div
+            v-for="(img, index) in allImages" :key="index"
+            class="thumb-box glass-card"
+            :class="{ active: currentImageIndex === index }"
+            @click="setMainImage(index)"
+          >
+            <img :src="img" class="thumb-img">
           </div>
         </div>
+      </div>
 
-        <div class="product-info">
-          <div v-if="product.is_promo" class="promo-badge-top">🎉 Ювілейна знижка -20%</div>
-          <span class="category-badge">{{ product.category_name || 'Товар' }}</span>
+      <!-- ПРАВА КОЛОНКА: ІНФО -->
+      <div class="info-section">
+        <div class="info-glass glass-card">
+          <span class="category-path">{{ product.category_name }}</span>
           <h1 class="product-title">{{ product.name }}</h1>
 
-          <div class="price-block">
-            <div class="price-wrapper">
-              <span v-if="product.is_promo" class="old-price">{{ product.original_price }} ₴</span>
-              <span class="price" :class="{ 'promo-active': product.is_promo }">{{ product.price }} ₴</span>
+          <div class="price-box">
+            <div class="price-values">
+              <span v-if="product.is_promo" class="old-price-val">{{ product.original_price }} ₴</span>
+              <span class="current-price" :class="{ 'promo-color': product.is_promo }">{{ product.price }} ₴</span>
             </div>
-            <span class="stock-status" :class="product.stock > 0 ? 'in-stock' : 'out-of-stock'">
+            <div class="stock-badge" :class="product.stock > 0 ? 'in' : 'out'">
               {{ product.stock > 0 ? 'В наявності' : 'Немає' }}
-            </span>
+            </div>
           </div>
 
-          <div class="size-section">
+          <div class="size-selector-block">
             <div class="size-header">
-              <span class="size-label">{{ sizeLabelText }}</span>
-              <span v-if="needsSize" class="size-selected">{{ selectedSize || 'Не обрано' }}</span>
+              <h3>{{ sizeLabelText }}</h3>
+              <span class="selected-val">{{ selectedSize || 'Оберіть зі списку' }}</span>
             </div>
-            <div v-if="needsSize" class="sizes-grid" :class="{ 'wide-sizes': isClothingCategory || isSocksCategory }">
-              <button v-for="size in currentSizes" :key="size" class="size-btn" :class="{ active: selectedSize === size }" @click="selectedSize = size">{{ size }}</button>
+
+            <div v-if="needsSize" class="sizes-container">
+              <button
+                v-for="size in currentSizes" :key="size"
+                class="size-chip"
+                :class="{ active: selectedSize === size }"
+                @click="selectedSize = size"
+              >
+                {{ size }}
+              </button>
             </div>
-            <div v-else class="one-size-box">
-              <span class="one-size-text">{{ isBallCategory ? 'Розмір: 5 (Стандарт)' : 'One Size (Універсальний)' }}</span>
+            <div v-else class="one-size-info">
+              <span class="info-icon">ℹ️</span>
+              {{ isBallCategory ? 'Розмір: 5 (Стандарт)' : 'Універсальний розмір' }}
             </div>
           </div>
 
-          <button class="add-to-cart-btn" :class="{ disabled: (needsSize && !selectedSize) || product.stock <= 0 }" @click="() => addToCart()" :disabled="(needsSize && !selectedSize) || product.stock <= 0">
-            {{ product.stock > 0 ? cartButtonText : 'Немає в наявності' }}
+          <button
+            class="add-to-cart-btn"
+            :class="{ 'btn-disabled': product.stock <= 0 }"
+            @click="addToCart"
+            :disabled="product.stock <= 0"
+          >
+            {{ product.stock > 0 ? (selectedSize || !needsSize ? 'Додати до кошика 🛍️' : 'Оберіть розмір') : 'Товар закінчився' }}
           </button>
         </div>
-      </div>
 
-      <div class="description-wrapper">
-        <div class="desc-header"><h2>Детальна інформація</h2></div>
-        <div class="desc-body"><p>{{ product.description || 'Опис відсутній.' }}</p></div>
+        <div class="description-glass glass-card">
+          <h3>Опис та характеристики</h3>
+          <p>{{ product.description || 'Детальний опис цієї моделі скоро з\'явиться.' }}</p>
+        </div>
       </div>
     </div>
 
-    <div v-else-if="isLoading" class="loading-state">
-      <div class="spinner"></div>
-      <p>Завантаження товару...</p>
+    <!-- LOADERS -->
+    <div v-else-if="isLoading" class="loader-wrap">
+      <div class="ball-spinner"></div>
+      <p>Готуємо товар до перегляду...</p>
     </div>
-    <div v-else class="error-state">❌ Товар не знайдено.</div>
   </div>
 </template>
 
 <style scoped>
-.promo-badge-top { background: #ef4444; color: white; padding: 8px 15px; border-radius: 12px; font-weight: 800; display: inline-block; margin-bottom: 15px; }
-.old-price { text-decoration: line-through; color: #94a3b8; font-size: 1.3rem; display: block; }
-.promo-active { color: #ef4444 !important; }
-.product-page { max-width: 1200px; margin: 0 auto; padding: 20px; }
-.product-top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; background: white; padding: 40px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); }
-.main-image-box { width: 100%; aspect-ratio: 1/1; background: #f8fafc; border-radius: 20px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.main-img { max-width: 90%; max-height: 90%; object-fit: contain; }
-.thumbnails { display: flex; gap: 10px; margin-top: 20px; overflow-x: auto; }
-.thumb { width: 70px; height: 70px; border-radius: 10px; cursor: pointer; border: 2px solid transparent; opacity: 0.6; }
-.thumb.active { border-color: #6366f1; opacity: 1; }
-.price-block { display: flex; justify-content: space-between; align-items: center; margin: 20px 0; border-bottom: 1px solid #f1f5f9; padding-bottom: 20px; }
-.price { font-size: 2.5rem; font-weight: 900; color: #10b981; }
-.sizes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; margin-top: 15px; }
-.size-btn { background: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 0; font-weight: 700; cursor: pointer; }
-.size-btn.active { background: #0f172a; color: white; border-color: #0f172a; }
-.add-to-cart-btn { background: #6366f1; color: white; border: none; width: 100%; padding: 20px; border-radius: 16px; font-size: 1.2rem; font-weight: 800; cursor: pointer; transition: 0.3s; }
-.add-to-cart-btn.disabled { background: #cbd5e1; cursor: not-allowed; }
-.loading-state { text-align: center; padding: 100px; }
-.spinner { width: 40px; height: 40px; border: 4px solid #f1f5f9; border-top-color: #6366f1; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+.product-page { max-width: 1300px; margin: 0 auto; padding: 40px 20px; color: white; }
+
+/* КНОПКА НАЗАД */
+.back-btn {
+  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px 24px; border-radius: 14px; color: #94a3b8; font-weight: 800;
+  cursor: pointer; transition: 0.3s; margin-bottom: 30px;
+}
+.back-btn:hover { border-color: #00ff88; color: #00ff88; transform: translateX(-5px); }
+
+/* LAYOUT */
+.product-layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: start; }
+
+.glass-card {
+  background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 32px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+/* ГАЛЕРЕЯ */
+.main-image-wrapper {
+  aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden; padding: 40px;
+}
+.main-img { max-width: 100%; max-height: 100%; object-fit: contain; transition: 0.5s; }
+.main-image-wrapper:hover .main-img { transform: scale(1.05) rotate(-2deg); }
+
+.promo-tag-big {
+  position: absolute; top: 25px; left: 25px; background: #ef4444; color: white;
+  padding: 8px 20px; border-radius: 12px; font-weight: 900; z-index: 5;
+  box-shadow: 0 10px 20px rgba(239, 68, 68, 0.4);
+}
+
+.nav-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.5); border: none; color: white;
+  width: 50px; height: 50px; border-radius: 50%; cursor: pointer; transition: 0.3s;
+}
+.nav-arrow:hover { background: #00ff88; color: #0f172a; }
+.prev { left: 20px; } .next { right: 20px; }
+
+.thumbnails-grid { display: flex; gap: 15px; margin-top: 20px; overflow-x: auto; padding-bottom: 10px; }
+.thumb-box { width: 100px; height: 100px; padding: 10px; cursor: pointer; transition: 0.3s; flex-shrink: 0; }
+.thumb-box.active { border-color: #00ff88; background: rgba(0, 255, 136, 0.05); }
+.thumb-img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ІНФОРМАЦІЯ */
+.info-glass { padding: 40px; margin-bottom: 25px; }
+.category-path { color: #00ff88; font-weight: 800; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; }
+.product-title { font-size: 2.5rem; font-weight: 900; margin: 10px 0 25px; line-height: 1.2; }
+
+.price-box { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; }
+.price-values { display: flex; flex-direction: column; }
+.old-price-val { text-decoration: line-through; color: #64748b; font-size: 1.2rem; font-weight: 800; }
+.current-price { font-size: 3rem; font-weight: 900; }
+.promo-color { color: #00ff88; }
+
+.stock-badge { padding: 6px 16px; border-radius: 20px; font-weight: 800; font-size: 0.85rem; }
+.stock-badge.in { background: rgba(0, 255, 136, 0.1); color: #00ff88; border: 1px solid rgba(0, 255, 136, 0.3); }
+.stock-badge.out { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+/* ВИБІР РОЗМІРУ */
+.size-selector-block { margin-bottom: 40px; }
+.size-header { display: flex; justify-content: space-between; margin-bottom: 15px; }
+.size-header h3 { font-size: 1.1rem; font-weight: 800; color: white; margin: 0; }
+.selected-val { color: #00ff88; font-weight: 900; }
+
+.sizes-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 12px; }
+.size-chip {
+  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 15px 0; border-radius: 14px; color: white; font-weight: 800; cursor: pointer; transition: 0.3s;
+}
+.size-chip:hover { border-color: #00ff88; color: #00ff88; }
+.size-chip.active { background: #00ff88; color: #0f172a; border-color: #00ff88; box-shadow: 0 0 20px rgba(0, 255, 136, 0.3); }
+
+.one-size-info {
+  background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3);
+  padding: 20px; border-radius: 16px; color: #818cf8; font-weight: 800; display: flex; gap: 10px;
+}
+
+/* КНОПКА КУПИТИ */
+.add-to-cart-btn {
+  width: 100%; background: white; color: #0f172a; border: none; padding: 22px;
+  border-radius: 20px; font-weight: 900; font-size: 1.2rem; cursor: pointer; transition: 0.4s;
+}
+.add-to-cart-btn:hover { background: #00ff88; transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0, 255, 136, 0.3); }
+.btn-disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+
+/* ОПИС */
+.description-glass { padding: 40px; }
+.description-glass h3 { margin-top: 0; font-size: 1.4rem; color: #00ff88; margin-bottom: 20px; }
+.description-glass p { color: #94a3b8; line-height: 1.8; font-size: 1.05rem; }
+
+/* LOADERS */
+.loader-wrap { text-align: center; padding: 100px 0; }
+.ball-spinner {
+  width: 50px; height: 50px; border: 5px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #00ff88; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 1000px) {
+  .product-layout { grid-template-columns: 1fr; }
+  .product-title { font-size: 2rem; }
+}
 </style>

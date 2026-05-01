@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-const props = defineProps({
+defineProps({
   product: { type: Object, required: true }
 })
 

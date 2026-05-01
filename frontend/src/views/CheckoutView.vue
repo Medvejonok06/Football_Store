@@ -294,7 +294,9 @@ const submitOrder = async () => {
               <span class="icon">🏢</span>
               <div class="text">
                 <strong>Відділення</strong>
-                <span>Від 70 ₴</span>
+                <!-- Зміна ціни на Безкоштовно -->
+                <span v-if="cartStore.isFreeDelivery" class="free-shipping-text">Безкоштовно</span>
+                <span v-else>Від 70 ₴</span>
               </div>
             </label>
             <label class="type-card" :class="{ active: deliveryType === 'postmat' }">
@@ -302,7 +304,9 @@ const submitOrder = async () => {
               <span class="icon">📦</span>
               <div class="text">
                 <strong>Поштомат</strong>
-                <span>Від 50 ₴</span>
+                <!-- Зміна ціни на Безкоштовно -->
+                <span v-if="cartStore.isFreeDelivery" class="free-shipping-text">Безкоштовно</span>
+                <span v-else>Від 50 ₴</span>
               </div>
             </label>
           </div>
@@ -310,24 +314,24 @@ const submitOrder = async () => {
           <div class="input-wrapper" v-if="selectedCity && !isLoadingWarehouses">
             <label>{{ deliveryType === 'postmat' ? 'Оберіть поштомат *' : 'Оберіть відділення *' }}</label>
             <div class="custom-select-wrapper">
-  <div class="custom-select-trigger" @click="isWarehouseOpen = !isWarehouseOpen" :class="{ 'is-open': isWarehouseOpen }">
-    <span class="selected-text">{{ selectedWarehouse ? selectedWarehouse.Description : 'Оберіть зі списку...' }}</span>
-    <span class="arrow">▼</span>
-  </div>
+              <div class="custom-select-trigger" @click="isWarehouseOpen = !isWarehouseOpen" :class="{ 'is-open': isWarehouseOpen }">
+                <span class="selected-text">{{ selectedWarehouse ? selectedWarehouse.Description : 'Оберіть зі списку...' }}</span>
+                <span class="arrow">▼</span>
+              </div>
 
-  <Transition name="fade">
-    <ul v-if="isWarehouseOpen" class="custom-options-list">
-      <li
-        v-for="w in filteredWarehouses"
-        :key="w.Ref"
-        @click="selectWarehouseItem(w)"
-        :class="{ 'selected': selectedWarehouse?.Ref === w.Ref }"
-      >
-        {{ w.Description }}
-      </li>
-    </ul>
-  </Transition>
-</div>
+              <Transition name="fade">
+                <ul v-if="isWarehouseOpen" class="custom-options-list">
+                  <li
+                    v-for="w in filteredWarehouses"
+                    :key="w.Ref"
+                    @click="selectWarehouseItem(w)"
+                    :class="{ 'selected': selectedWarehouse?.Ref === w.Ref }"
+                  >
+                    {{ w.Description }}
+                  </li>
+                </ul>
+              </Transition>
+            </div>
           </div>
         </section>
       </div>
@@ -335,18 +339,43 @@ const submitOrder = async () => {
       <aside class="summary-column">
         <div class="summary-card">
           <h2>Разом до сплати</h2>
+
+          <!-- ДОДАНО: ПРОГРЕС-БАР БЕЗКОШТОВНОЇ ДОСТАВКИ -->
+          <div class="delivery-promo glass-card">
+            <div class="promo-header">
+              <span class="icon">{{ cartStore.isFreeDelivery ? '🚀' : '📦' }}</span>
+              <span v-if="cartStore.isFreeDelivery" class="status-text success">
+                Вітаємо! Безкоштовна доставка активована
+              </span>
+              <span v-else class="status-text">
+                До безкоштовної доставки: <strong>{{ cartStore.amountToFreeDelivery }} ₴</strong>
+              </span>
+            </div>
+
+            <div class="progress-container">
+              <div
+                class="progress-fill"
+                :style="{ width: cartStore.deliveryProgress + '%' }"
+                :class="{ 'is-complete': cartStore.isFreeDelivery }"
+              ></div>
+            </div>
+
+            <p class="promo-hint">
+              * Безкоштовна доставка діє при замовленні товарів без знижок на суму від 5000 ₴
+            </p>
+          </div>
+
           <div class="items-list">
             <div class="summary-item" v-for="item in cartStore.items" :key="item.id">
               <div class="item-info">
-  <span class="item-name">{{ item.name }}</span>
-  <span class="item-meta">
-    <span class="item-qty">x{{ item.quantity || 1 }}</span>
-    <!-- Виводимо розмір, якщо він є в товарі -->
-    <span v-if="item.size || item.selectedSize" class="item-size">
-      • Розмір: {{ item.size || item.selectedSize }}
-    </span>
-  </span>
-</div>
+                <span class="item-name">{{ item.name }}</span>
+                <span class="item-meta">
+                  <span class="item-qty">x{{ item.quantity || 1 }}</span>
+                  <span v-if="item.size || item.selectedSize" class="item-size">
+                    • Розмір: {{ item.size || item.selectedSize }}
+                  </span>
+                </span>
+              </div>
 
               <div class="item-price-actions">
                 <span class="item-price">{{ item.price * (item.quantity || 1) }} ₴</span>
@@ -445,7 +474,7 @@ h1 { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
 
 .icon-box { position: relative; margin-bottom: 30px; }
 .main-icon { font-size: 6rem; position: relative; z-index: 2; display: block; animation: float 3s ease-in-out infinite; }
-.purple-glow { filter: drop-shadow(0 10px 25px rgba(0, 255, 136, 0.3)); } /* Змінив світіння на неонове */
+.purple-glow { filter: drop-shadow(0 10px 25px rgba(0, 255, 136, 0.3)); }
 
 @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
 
@@ -503,10 +532,66 @@ h1 { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
 .type-card .text { display: flex; flex-direction: column; gap: 4px; }
 .type-card .text strong { font-size: 1.05rem; color: white; }
 .type-card .text span { font-size: 0.85rem; color: #94a3b8; }
+.free-shipping-text { color: #00ff88 !important; font-weight: 800; text-shadow: 0 0 8px rgba(0, 255, 136, 0.3); }
 
 /* ПРАВА КОЛОНКА (СУМА) */
 .summary-card { background: rgba(17, 24, 39, 0.9); border: 1px solid rgba(255, 255, 255, 0.12); padding: 30px; border-radius: 24px; position: sticky; top: 20px; box-sizing: border-box; backdrop-filter: blur(15px); }
 .summary-card h2 { color: white; margin-top: 0; }
+
+/* --- DELIVERY PROMO (ПРОГРЕС-БАР ДОСТАВКИ) --- */
+.delivery-promo {
+  padding: 20px;
+  margin-bottom: 25px;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-radius: 20px !important;
+}
+
+.promo-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.status-text {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.status-text.success {
+  color: #00ff88;
+  text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+.progress-container {
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #a855f7);
+  transition: width 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border-radius: 10px;
+}
+
+.progress-fill.is-complete {
+  background: #00ff88;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.6);
+}
+
+.promo-hint {
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+  line-height: 1.4;
+}
 
 .items-list { margin-bottom: 20px; }
 .summary-item { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed rgba(255, 255, 255, 0.1); }
@@ -525,7 +610,7 @@ h1 { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
 }
 
 .item-size {
-  color: #00ff88; /* Робимо розмір неоново-зеленим, щоб привертав увагу */
+  color: #00ff88;
   font-size: 0.85rem;
   font-weight: 800;
   background: rgba(0, 255, 136, 0.1);
@@ -546,16 +631,14 @@ h1 { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
 .submit-btn { width: 100%; background: #00ff88; color: #0f172a; border: none; padding: 18px; border-radius: 14px; font-weight: 900; font-size: 1.1rem; cursor: pointer; margin-top: 25px; transition: 0.3s; text-transform: uppercase; letter-spacing: 0.5px; }
 .submit-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0, 255, 136, 0.4); }
 
-/* 1. Забороняємо лівій колонці вилазити за свої межі */
 .forms-column {
   min-width: 0;
 }
 
-/* 2. Обмежуємо ширину випадаючого списку НП */
 .modern-select {
   width: 100%;
   max-width: 100%;
-  text-overflow: ellipsis; /* Додає три крапки "...", якщо текст задовгий */
+  text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
 }
@@ -643,7 +726,6 @@ h1 { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
   border-left: 3px solid #6366f1;
 }
 
-/* Красивий скроллбар для нашого списку */
 .custom-options-list::-webkit-scrollbar {
   width: 6px;
 }

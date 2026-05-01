@@ -19,6 +19,11 @@ const searchQuery = ref('')
 const minPrice = ref(null)
 const maxPrice = ref(null)
 const selectedBrands = ref([])
+
+// НОВИЙ СТАН ДЛЯ ШИПІВ
+const selectedStudTypes = ref([])
+const availableStudTypes = ['FG', 'TF', 'IC', 'SG', 'AG'] // Можливі варіанти підошви
+
 const sortBy = ref('default')
 const isSortOpen = ref(false)
 
@@ -44,28 +49,19 @@ const showToast = (msg, type = 'success') => {
   }, 10)
 }
 
-// --- КРОК 1: ВІДКРИТТЯ ВИБОРУ РОЗМІРУ ---
+// --- ДОДАВАННЯ В КОШИК ---
 const handleAddToCart = (product) => {
-  // 1. Просто запам'ятовуємо товар
   lastAddedProduct.value = product
-  // 2. Відкриваємо модалку для вибору розміру
   showModal.value = true
 }
 
-// --- КРОК 2: ПІДТВЕРДЖЕННЯ ТА ДОДАВАННЯ В КОШИК ---
 const confirmAddingToCart = (size) => {
   if (!lastAddedProduct.value) return
-
-  // Створюємо об'єкт товару з розміром
   const productWithSize = {
     ...lastAddedProduct.value,
     selectedSize: size
   }
-
-  // Тільки ТЕПЕР додаємо в Pinia Store
   cartStore.addToCart(productWithSize)
-
-  // Показуємо тост (за бажанням)
   showToast(`✅ Додано розмір ${size}`, 'success')
 }
 
@@ -110,17 +106,30 @@ const filteredProducts = computed(() => {
   if (!products.value) return []
   let result = [...products.value]
 
+  // Фільтр по категорії
   if (selectedCategory.value) result = result.filter(p => p.category === selectedCategory.value)
+
+  // Фільтр по бренду
   if (selectedBrands.value.length > 0) {
     result = result.filter(p => p.name && selectedBrands.value.some(brand => p.name.toLowerCase().includes(brand.toLowerCase())))
   }
+
+  // Пошук
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
     result = result.filter(p => p.name && p.name.toLowerCase().includes(q))
   }
+
+  // Бюджет
   if (minPrice.value) result = result.filter(p => p.price >= minPrice.value)
   if (maxPrice.value) result = result.filter(p => p.price <= maxPrice.value)
 
+  // ФІЛЬТР ПО ТИПУ ПІДОШВИ (ШИПИ)
+  if (selectedStudTypes.value.length > 0) {
+    result = result.filter(p => p.stud_type && selectedStudTypes.value.includes(p.stud_type.toUpperCase()))
+  }
+
+  // Сортування
   if (sortBy.value === 'price-asc') result.sort((a, b) => a.price - b.price)
   else if (sortBy.value === 'price-desc') result.sort((a, b) => b.price - a.price)
   else if (sortBy.value === 'name') result.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
@@ -136,6 +145,7 @@ const selectSort = (option) => {
 const resetFilters = () => {
   selectedCategory.value = null
   selectedBrands.value = []
+  selectedStudTypes.value = [] // Скидаємо шипи
   minPrice.value = null
   maxPrice.value = null
   searchQuery.value = ''
@@ -145,7 +155,6 @@ const resetFilters = () => {
 
 <template>
   <div class="prom-layout">
-    <!-- Маленьке сповіщення -->
     <AppNotification
       v-if="notification.show"
       :message="notification.message"
@@ -202,6 +211,19 @@ const resetFilters = () => {
                 </label>
               </div>
             </div>
+
+            <!-- НОВИЙ БЛОК: ТИП ПІДОШВИ -->
+            <div class="filter-group">
+              <label class="group-label">👟 Тип підошви</label>
+              <div class="checkbox-list">
+                <label v-for="stud in availableStudTypes" :key="stud" class="custom-checkbox">
+                  <input type="checkbox" :value="stud" v-model="selectedStudTypes">
+                  <span class="checkmark"></span>
+                  <span class="label-text">{{ stud }}</span>
+                </label>
+              </div>
+            </div>
+
           </div>
 
           <div class="sidebar-footer">
@@ -291,6 +313,7 @@ const resetFilters = () => {
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;
+  appearance: none;
   margin: 0;
 }
 input[type=number] { -moz-appearance: textfield; }
@@ -460,6 +483,47 @@ input[type=number] { -moz-appearance: textfield; }
 .radio-item input { display: none; }
 .custom-radio { width: 16px; height: 16px; border: 2px solid var(--border); border-radius: 50%; }
 .active-selection .custom-radio { border-color: var(--neon); background: var(--neon); box-shadow: 0 0 8px var(--neon); }
+
+/* --- СТИЛІ ДЛЯ ЧЕКБОКСІВ (ШИПИ) --- */
+.checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.custom-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  color: #cbd5e1;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: 0.2s;
+}
+.custom-checkbox:hover { color: white; }
+.custom-checkbox input { display: none; }
+.checkmark {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+  background: rgba(0, 0, 0, 0.2);
+}
+.custom-checkbox input:checked ~ .checkmark {
+  background: var(--neon);
+  border-color: var(--neon);
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+.custom-checkbox input:checked ~ .checkmark::after {
+  content: "✓";
+  color: #0f172a;
+  font-weight: 900;
+  font-size: 14px;
+}
 
 .sidebar-footer { padding-top: 15px; border-top: 1px solid var(--border); }
 .ai-button {

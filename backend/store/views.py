@@ -1,12 +1,12 @@
 from rest_framework import viewsets, generics
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
 from django.db.models import Sum
 
-from .models import Category, Product, Order, OrderItem
+from .models import Category, Product, Order, OrderItem, ProductSize
 from .serializers import (
     CategorySerializer, 
     ProductSerializer, 
@@ -15,7 +15,6 @@ from .serializers import (
     OrderSerializer
 )
 
-# --- АВТОРИЗАЦІЯ ---
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
@@ -24,7 +23,6 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
 
-# --- КАТАЛОГ (Товари та Категорії) ---
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
@@ -32,10 +30,11 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    filterset_fields = ['category', 'stud_type']
+    # ОНОВЛЕНО фільтр для розмірів
+    filterset_fields = ['category', 'stud_type', 'product_sizes__size__name']
 
-# --- СТВОРЕННЯ ЗАМОВЛЕННЯ З КОШИКА ---
 @api_view(['POST'])
+@permission_classes([IsAuthenticated]) # ЗАХИСТ: Тільки авторизовані можуть створювати замовлення
 def create_order(request):
     try:
         items = request.data.get('items', [])
@@ -46,8 +45,8 @@ def create_order(request):
         city = request.data.get('city', '')
         nova_poshta = request.data.get('nova_poshta', '')
 
-        # Якщо користувач не авторизований, буде None
-        user = request.user if request.user.is_authenticated else None
+        # request.user гарантовано існує завдяки IsAuthenticated
+        user = request.user 
 
         order = Order.objects.create(
             user=user, 
@@ -59,20 +58,37 @@ def create_order(request):
         )
 
         for item in items:
-            product = Product.objects.get(id=item['id'].split('-')[0]) # Відрізаємо розмір, якщо він є в ID
+            product_id = str(item['id']).split('-')[0]
+            product = Product.objects.get(id=product_id)
+            
+            # Наш фронтенд передає вибраний розмір у 'selectedSize'
+            size_name = item.get('selectedSize', '') 
+            qty = item.get('quantity', 1)
+
             OrderItem.objects.create(
                 order=order, 
                 product=product, 
-                quantity=item['quantity']
+                size=size_name, # Зберігаємо розмір у замовленні!
+                quantity=qty
             )
-            product.stock -= item['quantity']
-            product.save()
+            
+            # СПИСАННЯ ЗАЛИШКІВ ІЗ КОНКРЕТНОГО РОЗМІРУ
+            if size_name:
+                try:
+                    product_size = ProductSize.objects.get(product=product, size__name=size_name)
+                    product_size.quantity -= qty
+                    # Щоб кількість не йшла в мінус:
+                    if product_size.quantity < 0:
+                        product_size.quantity = 0
+                    product_size.save()
+                except ProductSize.DoesNotExist:
+                    pass
 
         return Response({"message": "Замовлення успішно створено!", "order_id": order.id})
     except Exception as e:
         return Response({"error": str(e)}, status=400)
 
-# --- АДМІН-ПАНЕЛЬ: ЗАМОВЛЕННЯ ---
+
 @api_view(['GET'])
 def admin_orders(request):
     if not getattr(request.user, 'is_staff', False):
@@ -95,7 +111,6 @@ def update_order_status(request, pk):
     except Order.DoesNotExist:
         return Response({"error": "Замовлення не знайдено"}, status=404)
 
-# --- АДМІН-ПАНЕЛЬ: АНАЛІТИКА ---
 @api_view(['GET'])
 def analytics_data(request):
     try:
@@ -116,8 +131,6 @@ def analytics_data(request):
     except Exception as e:
         return Response({"error": str(e)}, status=400)
     
-
-# Деталі, редагування та видалення замовлення
 @api_view(['GET', 'PATCH', 'DELETE'])
 def admin_order_detail(request, pk):
     if not getattr(request.user, 'is_staff', False):
@@ -133,7 +146,6 @@ def admin_order_detail(request, pk):
         return Response(serializer.data)
 
     elif request.method == 'PATCH':
-        # Дозволяємо оновлювати ці поля
         allowed_fields = ['full_name', 'phone', 'city', 'nova_poshta', 'status']
         for field in allowed_fields:
             if field in request.data:

@@ -1,17 +1,23 @@
 from rest_framework import serializers
-from .models import Category, Product, ProductImage, Order, OrderItem
+from .models import Category, Product, ProductImage, Order, OrderItem, ProductSize
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+# --- НОВИЙ СЕРІАЛІЗАТОР ДЛЯ РОЗМІРІВ ---
+class ProductSizeSerializer(serializers.ModelSerializer):
+    size_name = serializers.CharField(source='size.name', read_only=True)
+
+    class Meta:
+        model = ProductSize
+        fields = ['size_name', 'quantity']
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
     class Meta:
         model = OrderItem
-        fields = ['product_name', 'quantity']
+        fields = ['product_name', 'size', 'quantity'] # Додали size сюди
 
 class OrderSerializer(serializers.ModelSerializer):
-    # Використовуємо кастомний метод, щоб гарантовано дістати товари
     items = serializers.SerializerMethodField()
 
     class Meta:
@@ -19,27 +25,23 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'phone', 'city', 'nova_poshta', 'total_price', 'status', 'created_at', 'items']
 
     def get_items(self, obj):
-        # Шукаємо товари як би вони не були записані в базі
         if hasattr(obj, 'orderitem_set'):
             items = obj.orderitem_set.all()
         elif hasattr(obj, 'items'):
             items = obj.items.all()
         else:
             return []
-        
         return OrderItemSerializer(items, many=True).data
-# Кастомний серіалізатор для токена
+
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        # Додаємо статус адміна в сам токен (payload)
         token['is_staff'] = user.is_staff
         return token
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        # Додаємо статус адміна у відповідь сервера при логіні
         data['is_staff'] = self.user.is_staff
         data['username'] = self.user.username
         return data
@@ -52,7 +54,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ('id', 'username', 'email', 'password')
 
     def create(self, validated_data):
-        # Використовуємо create_user, щоб пароль хешувався (шифрувався)
         user = User.objects.create_user(
             validated_data['username'],
             validated_data.get('email', ''),
@@ -65,11 +66,6 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ['id', 'name']
 
-
-
-
-
-
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
@@ -77,9 +73,12 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.ReadOnlyField(source='category.name')
-    # Додаємо вкладений серіалізатор для галереї
     images = ProductImageSerializer(many=True, read_only=True)
+    
+    # ВИКОРИСТОВУЄМО ВКАЗАНИЙ СЕРІАЛІЗАТОР (замість SlugRelatedField)
+    sizes = ProductSizeSerializer(source='product_sizes', many=True, read_only=True)
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'category', 'category_name', 'price', 'description', 'stud_type', 'stock', 'image', 'images']
+        # Видалили stock
+        fields = ['id', 'name', 'category', 'category_name', 'price', 'description', 'stud_type', 'image', 'images', 'sizes']

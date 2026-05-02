@@ -1,18 +1,36 @@
 <script setup>
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import AppConfirm from '../components/AppConfirm.vue' // Імпортуємо нову модалку
 
 const router = useRouter()
 const authStore = useAuthStore()
 
-const handleLogout = () => {
+// Стан для модалки підтвердження виходу
+const showLogoutConfirm = ref(false)
+
+const triggerLogout = () => {
+  showLogoutConfirm.value = true
+}
+
+const confirmLogout = () => {
   authStore.logout()
-  router.push('/login')
+  showLogoutConfirm.value = false
+  // Після виходу просто залишаємось на головній, інтерфейс оновиться сам
+  router.push('/')
 }
 </script>
 
 <template>
   <nav class="navbar glass-effect">
+    <!-- МОДАЛКА ПІДТВЕРДЖЕННЯ ВИХОДУ -->
+    <AppConfirm
+      v-if="showLogoutConfirm"
+      @confirm="confirmLogout"
+      @cancel="showLogoutConfirm = false"
+    />
+
     <div class="logo-container" @click="router.push('/')">
       <div class="logo-badge">FS</div>
       <span class="logo-text">Football<span class="pro-highlight">PRO</span></span>
@@ -28,13 +46,20 @@ const handleLogout = () => {
         <span class="btn-text">Аналітика</span>
       </button>
 
-      <div class="user-pill" @click="handleLogout">
+      <!-- ПАНЕЛЬ КОРИСТУВАЧА -->
+      <div v-if="authStore.user" class="user-pill" @click="triggerLogout">
         <span class="user-emoji">😎</span>
         <div class="user-details">
           <span class="user-prefix">ПРИВІТ,</span>
-          <span class="user-name">{{ authStore.user?.username || 'medvejonok' }}</span>
+          <span class="user-name">{{ authStore.user?.username || 'Гість' }}</span>
         </div>
       </div>
+
+      <!-- КНОПКА УВІЙТИ (якщо не залогінений) -->
+      <button v-else class="nav-btn dark-outline" @click="$emit('open-auth')">
+        <span class="btn-icon">👤</span>
+        <span class="btn-text">Увійти</span>
+      </button>
 
       <button class="nav-btn primary-btn" @click="router.push('/cart')">
         <span class="btn-icon">🛒</span>
@@ -58,6 +83,13 @@ const handleLogout = () => {
   z-index: 1000;
 }
 
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
 .logo-badge {
   background: white;
   color: #050811;
@@ -66,7 +98,12 @@ const handleLogout = () => {
   padding: 8px 12px;
 }
 
-.logo-text { color: white; }
+.logo-text {
+  color: white;
+  font-weight: 900;
+  font-size: 1.2rem;
+  letter-spacing: 0.5px;
+}
 .pro-highlight { color: #00ff88; }
 
 .nav-controls { display: flex; align-items: center; gap: 15px; }
@@ -91,6 +128,7 @@ const handleLogout = () => {
 .dark-outline:hover {
   background: rgba(255, 255, 255, 0.08);
   color: white;
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .neon-outline {
@@ -113,15 +151,19 @@ const handleLogout = () => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 5px 20px; /* Трохи ширші відступи, як у кнопок */
+  padding: 5px 20px;
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 14px; /* Такий самий радіус, як у кнопок */
+  border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;
-  height: 46px; /* Висота як у кнопок навігації */
+  height: 46px;
+  transition: 0.3s;
 }
 
-.user-pill:hover { border-color: rgba(255, 255, 255, 0.2); }
+.user-pill:hover {
+  border-color: #ef4444; /* Колір виходу при наведенні */
+  background: rgba(239, 68, 68, 0.05);
+}
 
 .user-details {
   display: flex;
@@ -130,14 +172,15 @@ const handleLogout = () => {
 }
 
 .user-prefix {
-  color: #94a3b8; /* Сірий колір, точно як у "Про нас" */
-  font-size: 1rem; /* Стандартний розмір */
+  color: #94a3b8;
+  font-size: 0.9rem;
   font-weight: 800;
 }
 
 .user-name {
   color: white;
-  font-size: 1rem; /* Стандартний розмір */
+  font-size: 1rem;
   font-weight: 800;
+  text-transform: uppercase;
 }
 </style>

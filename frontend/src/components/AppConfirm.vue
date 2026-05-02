@@ -14,7 +14,7 @@ defineEmits(['confirm', 'cancel'])
   <Transition name="fade">
     <div v-if="show" class="modal-backdrop" @click.self="$emit('cancel')">
       <div class="modal-glass">
-        <div class="icon-circle">👋</div>
+        <div class="exit-icon">👋</div>
         <h3 class="modal-title">{{ title }}</h3>
         <p class="modal-msg">{{ message }}</p>
 
@@ -28,105 +28,106 @@ defineEmits(['confirm', 'cancel'])
 </template>
 
 <style scoped>
-/* Затемнення фону та блокування натискань */
+/* ТЕМНИЙ ФОН ТА РОЗМИТТЯ */
 .modal-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(11, 15, 25, 0.85); /* Глибокий темний */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 999999;
 }
 
-/* Скляне вікно */
+/* СТЙЛЬНА СКЛЯНА КАРТКА */
 .modal-glass {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 28px;
-  padding: 30px;
+  background: rgba(17, 24, 39, 0.95); /* Темний фон картки */
+  border: 1px solid rgba(255, 255, 255, 0.1); /* Тонка світла рамка */
+  border-radius: 32px;
+  padding: 40px;
   width: 90%;
-  max-width: 360px;
+  max-width: 400px;
   text-align: center;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 255, 136, 0.05);
   transform: translateY(0);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.icon-circle {
-  width: 60px;
-  height: 60px;
-  background: #f8fafc;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  margin: 0 auto 15px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+.exit-icon {
+  font-size: 3.5rem;
+  margin-bottom: 20px;
 }
 
 .modal-title {
   margin: 0 0 10px 0;
-  font-size: 1.4rem;
+  font-size: 1.8rem;
   font-weight: 900;
-  color: #0f172a;
+  color: white; /* Білий заголовок */
 }
 
 .modal-msg {
-  margin: 0 0 25px 0;
-  color: #64748b;
+  margin: 0 0 30px 0;
+  color: #94a3b8; /* Сірий текст */
   font-weight: 600;
-  font-size: 0.95rem;
-  line-height: 1.5;
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
-/* Кнопки */
+/* КНОПКИ */
 .modal-actions {
   display: flex;
-  gap: 12px;
+  gap: 15px;
 }
 
 .btn-cancel, .btn-confirm {
   flex: 1;
-  padding: 14px;
-  border-radius: 14px;
+  padding: 16px;
+  border-radius: 16px;
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: 1rem;
   cursor: pointer;
-  transition: 0.2s;
+  transition: 0.3s;
   border: none;
 }
 
+/* Кнопка "Залишитись" */
 .btn-cancel {
-  background: #f1f5f9;
-  color: #475569;
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .btn-cancel:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: rgba(255, 255, 255, 0.1);
+  color: #00ff88;
+  border-color: #00ff88;
 }
 
+/* Кнопка "Вийти" */
 .btn-confirm {
-  background: #ef4444; /* Червоний колір для виходу */
+  background: #ef4444;
   color: white;
-  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 10px 20px rgba(239, 68, 68, 0.2);
 }
 .btn-confirm:hover {
   background: #dc2626;
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 15px 30px rgba(239, 68, 68, 0.4);
 }
 
-/* Анімації Transition */
+/* АНІМАЦІЇ */
 .fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity 0.3s ease;
 }
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
+}
+.fade-enter-active .modal-glass, .fade-leave-active .modal-glass {
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 .fade-enter-from .modal-glass, .fade-leave-to .modal-glass {
   transform: scale(0.9) translateY(20px);

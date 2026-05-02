@@ -4,24 +4,30 @@ import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { useCartStore } from '../stores/cart'
 import AppNotification from '../components/AppNotification.vue'
+import AuthModal from '../components/AuthModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
+
+// ПЕРЕВІРКА АВТОРИЗАЦІЇ
+const isAuthenticated = ref(!!localStorage.getItem('access_token') || !!localStorage.getItem('token'))
 
 const product = ref(null)
 const similarProducts = ref([])
 const isLoading = ref(true)
 const selectedSize = ref(null)
 
-// --- СТАН ДЛЯ СПОВІЩЕНЬ ТА МОДАЛЬНОГО ВІКНА ---
-const notification = ref({
-  show: false,
-  message: '',
-  type: 'success'
-})
-
+// --- СТАН ДЛЯ СПОВІЩЕНЬ ТА МОДАЛЬНИХ ВІКОН ---
+const notification = ref({ show: false, message: '', type: 'success' })
 const showSuccessModal = ref(false)
+const showAuthModal = ref(false) // Стан для модалки авторизації
+
+const handleAuthClose = () => {
+  showAuthModal.value = false
+  // Оновлюємо статус авторизації після закриття модалки
+  isAuthenticated.value = !!localStorage.getItem('access_token') || !!localStorage.getItem('token')
+}
 
 const showToast = (msg, type = 'success') => {
   notification.value.show = false
@@ -34,44 +40,18 @@ const showToast = (msg, type = 'success') => {
 
 const currentImageIndex = ref(0)
 
-// МАСИВИ РОЗМІРІВ
-const shoeSizes = [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47]
-const clothingSizes = ['S', 'M', 'L', 'XL', 'XXL']
-const sockSizes = ['36-39', '39-42', '42-45', '45-48']
-
-// ДОПОМІЖНІ ЗМІННІ
-const catName = computed(() => (product.value?.category_name || '').toLowerCase())
-const prodName = computed(() => (product.value?.name || '').toLowerCase())
-
-const isShoeCategory = computed(() => {
-  return catName.value.includes('бутси') || catName.value.includes('сороконіжки') ||
-         catName.value.includes('футзалки') || catName.value.includes('взуття')
+// --- ЛОГІКА ДЛЯ РЕАЛЬНИХ РОЗМІРІВ З БАЗИ ---
+const availableSizes = computed(() => {
+  if (!product.value || !product.value.sizes) return []
+  return product.value.sizes
 })
 
-const isClothingCategory = computed(() => {
-  return catName.value.includes('форма') || catName.value.includes('одяг') ||
-         catName.value.includes('футболка') || catName.value.includes('шорти') ||
-         catName.value.includes('костюм') || prodName.value.includes('костюм')
+const totalStock = computed(() => {
+  if (!product.value || !product.value.sizes) return 0
+  return product.value.sizes.reduce((sum, item) => sum + item.quantity, 0)
 })
 
-const isSocksCategory = computed(() => {
-  return catName.value.includes('носки') || catName.value.includes('шкарпетки')
-})
-
-const isBallCategory = computed(() => {
-  return catName.value.includes('м\'яч') || catName.value.includes('мяч')
-})
-
-const needsSize = computed(() => isShoeCategory.value || isClothingCategory.value || isSocksCategory.value)
-
-const currentSizes = computed(() => {
-  if (isSocksCategory.value) return sockSizes
-  if (isShoeCategory.value) return shoeSizes
-  if (isClothingCategory.value) return clothingSizes
-  return []
-})
-
-const sizeLabelText = computed(() => isShoeCategory.value ? 'Розмір (EU):' : 'Розмір:')
+const needsSize = computed(() => availableSizes.value.length > 0)
 
 // --- 🎁 ПРОМО-АКЦІЯ ---
 const applyPromo = (prod) => {
@@ -137,7 +117,7 @@ const addToCart = () => {
 
   cartStore.addToCart({
     ...product.value,
-    selectedSize: selectedSize.value || (isBallCategory.value ? '5' : 'One Size')
+    selectedSize: selectedSize.value || 'One Size'
   })
 
   showSuccessModal.value = true
@@ -146,26 +126,18 @@ const addToCart = () => {
 // --- РОЗУМНИЙ АНАЛІЗАТОР ТЕКСТУ ОПИСУ ---
 const parsedDescription = computed(() => {
   if (!product.value?.description) return []
-
   const lines = product.value.description.split('\n').filter(line => line.trim() !== '')
 
   return lines.map(line => {
     const colonIndex = line.indexOf(':')
     const textAfter = line.substring(colonIndex + 1).trim()
 
-    // Якщо є двокрапка, і слово до неї не надто довге (Характеристика)
     if (colonIndex > 0 && colonIndex < 40 && textAfter.length > 0) {
-      return {
-        type: 'feature',
-        label: line.substring(0, colonIndex + 1),
-        text: textAfter
-      }
+      return { type: 'feature', label: line.substring(0, colonIndex + 1), text: textAfter }
     }
-    // Якщо є двокрапка, але після неї пусто (Підзаголовок)
     else if (colonIndex > 0 && textAfter.length === 0) {
       return { type: 'subtitle', text: line.trim() }
     }
-    // Звичайний текст (абзац)
     else {
       return { type: 'paragraph', text: line.trim() }
     }
@@ -182,6 +154,10 @@ const parsedDescription = computed(() => {
       @close="notification.show = false"
     />
 
+    <!-- МОДАЛКА АВТОРИЗАЦІЇ -->
+    <AuthModal v-if="showAuthModal" @close="handleAuthClose" />
+
+    <!-- МОДАЛКА КОШИКА -->
     <Transition name="fade">
       <div v-if="showSuccessModal" class="modal-backdrop" @click.self="showSuccessModal = false">
         <div class="modal-glass success-modal">
@@ -206,9 +182,9 @@ const parsedDescription = computed(() => {
     <!-- КОНТЕЙНЕР ДЛЯ ВСЬОГО ТОВАРУ -->
     <div v-if="!isLoading && product" class="product-full-container">
 
-      <!-- ВЕРХНЯ ЧАСТИНА (Блоки 1 і 2) -->
+      <!-- ВЕРХНЯ ЧАСТИНА -->
       <div class="product-layout">
-        <!-- ЛІВА КОЛОНКА (1): ГАЛЕРЕЯ -->
+        <!-- ЛІВА КОЛОНКА: ГАЛЕРЕЯ -->
         <div class="gallery-section">
           <div class="main-image-wrapper glass-card">
             <div v-if="product.is_promo" class="promo-tag-big">ЮВІЛЕЙНА ЗНИЖКА -20%</div>
@@ -228,7 +204,7 @@ const parsedDescription = computed(() => {
           </div>
         </div>
 
-        <!-- ПРАВА КОЛОНКА (2): ІНФО -->
+        <!-- ПРАВА КОЛОНКА: ІНФО -->
         <div class="info-section">
           <div class="info-glass glass-card">
             <span class="category-path">{{ product.category_name }}</span>
@@ -239,46 +215,61 @@ const parsedDescription = computed(() => {
                 <span v-if="product.is_promo" class="old-price-val">{{ product.original_price }} ₴</span>
                 <span class="current-price" :class="{ 'promo-color': product.is_promo }">{{ product.price }} ₴</span>
               </div>
-              <div class="stock-badge" :class="product.stock > 0 ? 'in' : 'out'">
-                {{ product.stock > 0 ? 'В наявності' : 'Немає' }}
+              <div class="stock-badge" :class="totalStock > 0 ? 'in' : 'out'">
+                {{ totalStock > 0 ? 'В наявності' : 'Немає' }}
               </div>
             </div>
 
             <div class="size-selector-block">
               <div class="size-header">
-                <h3>{{ sizeLabelText }}</h3>
+                <h3>Розмір:</h3>
                 <span class="selected-val">{{ selectedSize || 'Оберіть зі списку' }}</span>
               </div>
 
               <div v-if="needsSize" class="sizes-container">
                 <button
-                  v-for="size in currentSizes" :key="size"
+                  v-for="sizeObj in availableSizes" :key="sizeObj.size_name"
                   class="size-chip"
-                  :class="{ active: selectedSize === size }"
-                  @click="selectedSize = size"
+                  :class="{
+                    active: selectedSize === sizeObj.size_name,
+                    'disabled-size': sizeObj.quantity <= 0
+                  }"
+                  :disabled="sizeObj.quantity <= 0"
+                  @click="selectedSize = sizeObj.size_name"
+                  :title="sizeObj.quantity <= 0 ? 'Немає в наявності' : `Залишилось: ${sizeObj.quantity} шт.`"
                 >
-                  {{ size }}
+                  {{ sizeObj.size_name }}
                 </button>
               </div>
               <div v-else class="one-size-info">
                 <span class="info-icon">ℹ️</span>
-                {{ isBallCategory ? 'Розмір: 5 (Стандарт)' : 'Універсальний розмір' }}
+                Універсальний розмір (One Size)
               </div>
             </div>
 
+            <!-- ЗМІНЕНІ КНОПКИ ДЛЯ АВТОРИЗАЦІЇ -->
             <button
-              class="add-to-cart-btn"
-              :class="{ 'btn-disabled': product.stock <= 0 }"
-              @click="addToCart"
-              :disabled="product.stock <= 0"
+              v-if="!isAuthenticated"
+              class="add-to-cart-btn login-required-btn"
+              @click="showAuthModal = true"
             >
-              {{ product.stock > 0 ? (selectedSize || !needsSize ? 'Додати до кошика 🛍️' : 'Оберіть розмір') : 'Товар закінчився' }}
+              Увійдіть, щоб купити 🔒
+            </button>
+
+            <button
+              v-else
+              class="add-to-cart-btn"
+              :class="{ 'btn-disabled': totalStock <= 0 || (needsSize && !selectedSize) }"
+              @click="addToCart"
+              :disabled="totalStock <= 0 || (needsSize && !selectedSize)"
+            >
+              {{ totalStock > 0 ? (selectedSize || !needsSize ? 'Додати до кошика 🛍️' : 'Оберіть розмір') : 'Товар закінчився' }}
             </button>
           </div>
         </div>
-      </div> <!-- /product-layout -->
+      </div>
 
-      <!-- НИЖНЯ ЧАСТИНА (Блок 333): ОПИС НА ВСЮ ШИРИНУ З НОВИМ ДИЗАЙНОМ -->
+      <!-- НИЖНЯ ЧАСТИНА: ОПИС -->
       <div class="description-glass glass-card">
         <div class="desc-header">
           <h3>Опис та характеристики</h3>
@@ -286,23 +277,16 @@ const parsedDescription = computed(() => {
 
         <div class="desc-body">
           <template v-for="(item, index) in parsedDescription" :key="index">
-
-            <!-- Підзаголовок -->
             <h4 v-if="item.type === 'subtitle'" class="desc-subtitle">
               {{ item.text }}
             </h4>
-
-            <!-- Характеристика (Стильний рядок) -->
             <div v-else-if="item.type === 'feature'" class="feature-row">
               <span class="feature-label">{{ item.label }}</span>
               <span class="feature-text">{{ item.text }}</span>
             </div>
-
-            <!-- Звичайний абзац -->
             <p v-else class="desc-paragraph">
               {{ item.text }}
             </p>
-
           </template>
 
           <p v-if="!parsedDescription.length" class="desc-empty">
@@ -323,282 +307,76 @@ const parsedDescription = computed(() => {
 
 <style scoped>
 .product-page { max-width: 1300px; margin: 0 auto; padding: 40px 20px; color: white; }
-
-/* КНОПКА НАЗАД */
-.back-btn {
-  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 12px 24px; border-radius: 14px; color: #94a3b8; font-weight: 800;
-  cursor: pointer; transition: 0.3s; margin-bottom: 30px;
-}
+.back-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 12px 24px; border-radius: 14px; color: #94a3b8; font-weight: 800; cursor: pointer; transition: 0.3s; margin-bottom: 30px; }
 .back-btn:hover { border-color: #00ff88; color: #00ff88; transform: translateX(-5px); }
-
-/* LAYOUT: ВЕРХНЯ ЧАСТИНА (1 і 2) */
-.product-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
-  align-items: start; /* Не тягнемо праву картку вниз */
-  margin-bottom: 40px;
-}
-
-.glass-card {
-  background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 32px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-}
-
-/* ГАЛЕРЕЯ */
-.gallery-section {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.main-image-wrapper {
-  width: 100%; /* ДОДАНО: Жорстко фіксує ширину по колонці */
-  aspect-ratio: 1 / 1; /* Тримаємо ідеальний квадрат */
-  display: flex; align-items: center; justify-content: center;
-  position: relative; overflow: hidden; padding: 40px;
-  box-sizing: border-box; /* ДОДАНО: Щоб внутрішні відступи не ламали розмір квадрата */
-}
-.main-img {
-  width: 100%; /* ДОДАНО: Картинка тепер займає 100% виділеного місця */
-  height: 100%; /* ДОДАНО: Картинка не вилізе за висоту квадрата */
-  object-fit: contain; /* Картинка адаптується без обрізки та спотворення */
-  transition: 0.5s;
-}
+.product-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; margin-bottom: 40px; }
+.glass-card { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 32px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3); }
+.gallery-section { display: flex; flex-direction: column; min-width: 0; }
+.main-image-wrapper { width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; padding: 40px; box-sizing: border-box; }
+.main-img { width: 100%; height: 100%; object-fit: contain; transition: 0.5s; }
 .main-image-wrapper:hover .main-img { transform: scale(1.05) rotate(-2deg); }
-
-.promo-tag-big {
-  position: absolute; top: 25px; left: 25px; background: #ef4444; color: white;
-  padding: 8px 20px; border-radius: 12px; font-weight: 900; z-index: 5;
-  box-shadow: 0 10px 20px rgba(239, 68, 68, 0.4);
-}
-
-.nav-arrow {
-  position: absolute; top: 50%; transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.5); border: none; color: white;
-  width: 50px; height: 50px; border-radius: 50%; cursor: pointer; transition: 0.3s;
-}
+.promo-tag-big { position: absolute; top: 25px; left: 25px; background: #ef4444; color: white; padding: 8px 20px; border-radius: 12px; font-weight: 900; z-index: 5; box-shadow: 0 10px 20px rgba(239, 68, 68, 0.4); }
+.nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0, 0, 0, 0.5); border: none; color: white; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; transition: 0.3s; }
 .nav-arrow:hover { background: #00ff88; color: #0f172a; }
 .prev { left: 20px; } .next { right: 20px; }
-
 .thumbnails-grid { display: flex; gap: 15px; margin-top: 20px; overflow-x: auto; padding-bottom: 10px; }
 .thumb-box { width: 100px; height: 100px; padding: 10px; cursor: pointer; transition: 0.3s; flex-shrink: 0; }
 .thumb-box.active { border-color: #00ff88; background: rgba(0, 255, 136, 0.05); }
 .thumb-img { width: 100%; height: 100%; object-fit: contain; }
-
-/* ІНФОРМАЦІЯ */
-.info-section {
-  display: flex;
-  flex-direction: column;
-}
-
-.info-glass {
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-}
-
+.info-section { display: flex; flex-direction: column; }
+.info-glass { padding: 40px; display: flex; flex-direction: column; }
 .category-path { color: #00ff88; font-weight: 800; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; }
 .product-title { font-size: 2.5rem; font-weight: 900; margin: 10px 0 25px; line-height: 1.2; }
-
-/* Вирівнювання ціни та бейджа по центру відносно один одного */
 .price-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
 .price-values { display: flex; flex-direction: column; white-space: nowrap; }
 .old-price-val { text-decoration: line-through; color: #64748b; font-size: 1.2rem; font-weight: 800; }
 .current-price { font-size: 3rem; font-weight: 900; }
 .promo-color { color: #00ff88; }
-
-.stock-badge {
-  padding: 10px 20px;
-  border-radius: 20px;
-  font-weight: 900;
-  font-size: 0.95rem;
-  white-space: nowrap;
-  flex-shrink: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
+.stock-badge { padding: 10px 20px; border-radius: 20px; font-weight: 900; font-size: 0.95rem; white-space: nowrap; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px; }
 .stock-badge.in { background: rgba(0, 255, 136, 0.1); color: #00ff88; border: 1px solid rgba(0, 255, 136, 0.3); }
 .stock-badge.out { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
-
-/* ВИБІР РОЗМІРУ */
 .size-selector-block { margin-bottom: 40px; }
 .size-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
 .size-header h3 { font-size: 1.2rem; font-weight: 800; color: white; margin: 0; }
 .selected-val { color: #00ff88; font-weight: 900; font-size: 1.1rem; }
-
-.sizes-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-  gap: 15px;
-}
-.size-chip {
-  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 18px 0;
-  border-radius: 16px;
-  color: white;
-  font-weight: 900;
-  font-size: 1.2rem;
-  cursor: pointer; transition: 0.3s;
-}
-.size-chip:hover { border-color: #00ff88; color: #00ff88; background: rgba(0, 255, 136, 0.05); }
+.sizes-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 15px; }
+.size-chip { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 18px 0; border-radius: 16px; color: white; font-weight: 900; font-size: 1.2rem; cursor: pointer; transition: 0.3s; }
+.size-chip:hover:not(.disabled-size) { border-color: #00ff88; color: #00ff88; background: rgba(0, 255, 136, 0.05); }
 .size-chip.active { background: #00ff88; color: #0f172a; border-color: #00ff88; box-shadow: 0 0 20px rgba(0, 255, 136, 0.3); transform: scale(1.05); }
-
-.one-size-info {
-  background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3);
-  padding: 20px; border-radius: 16px; color: #818cf8; font-weight: 800; display: flex; gap: 10px; font-size: 1.1rem;
-}
-
-/* КНОПКА КУПИТИ */
-.add-to-cart-btn {
-  width: 100%; background: white; color: #0f172a; border: none; padding: 22px;
-  border-radius: 20px; font-weight: 900; font-size: 1.2rem; cursor: pointer; transition: 0.4s;
-}
-.add-to-cart-btn:hover { background: #00ff88; transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0, 255, 136, 0.3); }
+.disabled-size { opacity: 0.4; cursor: not-allowed; background: rgba(255, 255, 255, 0.02); text-decoration: line-through; color: #64748b; }
+.one-size-info { background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); padding: 20px; border-radius: 16px; color: #818cf8; font-weight: 800; display: flex; gap: 10px; font-size: 1.1rem; }
+.add-to-cart-btn { width: 100%; background: white; color: #0f172a; border: none; padding: 22px; border-radius: 20px; font-weight: 900; font-size: 1.2rem; cursor: pointer; transition: 0.4s; }
+.add-to-cart-btn:hover:not(:disabled) { background: #00ff88; transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0, 255, 136, 0.3); }
 .btn-disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
-
-/* --- БЛОК 3: ОПИС НА ВСЮ ШИРИНУ З НОВИМ ДИЗАЙНОМ --- */
-.description-glass {
-  padding: 50px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.desc-header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 20px;
-  margin-bottom: 30px;
-}
-.desc-header h3 {
-  margin: 0;
-  font-size: 1.8rem;
-  color: white;
-  font-weight: 900;
-}
-
-.desc-body {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.desc-paragraph {
-  color: #94a3b8;
-  line-height: 1.8;
-  font-size: 1.1rem;
-  margin: 0;
-}
-
-.desc-subtitle {
-  color: #00ff88;
-  font-size: 1.2rem;
-  font-weight: 800;
-  margin: 20px 0 5px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-/* Оформлення списку характеристик */
-.feature-row {
-  display: flex;
-  align-items: center; /* ВИПРАВЛЕНО: Тепер текст ідеально по центру вертикалі */
-  background: rgba(255, 255, 255, 0.03);
-  padding: 18px 24px;
-  border-radius: 16px;
-  border-left: 4px solid #00ff88;
-  gap: 20px;
-  transition: 0.3s ease;
-}
-.feature-row:hover {
-  background: rgba(255, 255, 255, 0.06);
-  transform: translateX(5px);
-  box-shadow: 0 5px 15px rgba(0, 255, 136, 0.05);
-}
-
-.feature-label {
-  color: white;
-  font-weight: 800;
-  min-width: 220px; /* ВИПРАВЛЕНО: Збільшено ширину, щоб влізли довгі назви */
-  flex-shrink: 0; /* Забороняємо браузеру "стискати" цю колонку */
-  font-size: 1.05rem;
-}
-
-.feature-text {
-  color: #cbd5e1;
-  font-size: 1.05rem;
-  line-height: 1.6;
-  margin: 0;
-}
-
+.login-required-btn { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; }
+.login-required-btn:hover { box-shadow: 0 15px 30px rgba(99, 102, 241, 0.4); }
+.description-glass { padding: 50px; width: 100%; box-sizing: border-box; }
+.desc-header { border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 20px; margin-bottom: 30px; }
+.desc-header h3 { margin: 0; font-size: 1.8rem; color: white; font-weight: 900; }
+.desc-body { display: flex; flex-direction: column; gap: 18px; }
+.desc-paragraph { color: #94a3b8; line-height: 1.8; font-size: 1.1rem; margin: 0; }
+.desc-subtitle { color: #00ff88; font-size: 1.2rem; font-weight: 800; margin: 20px 0 5px; text-transform: uppercase; letter-spacing: 1px; }
+.feature-row { display: flex; align-items: center; background: rgba(255, 255, 255, 0.03); padding: 18px 24px; border-radius: 16px; border-left: 4px solid #00ff88; gap: 20px; transition: 0.3s ease; }
+.feature-row:hover { background: rgba(255, 255, 255, 0.06); transform: translateX(5px); box-shadow: 0 5px 15px rgba(0, 255, 136, 0.05); }
+.feature-label { color: white; font-weight: 800; min-width: 220px; flex-shrink: 0; font-size: 1.05rem; }
+.feature-text { color: #cbd5e1; font-size: 1.05rem; line-height: 1.6; margin: 0; }
 .desc-empty { color: #64748b; font-style: italic; }
-
-/* LOADERS */
 .loader-wrap { text-align: center; padding: 100px 0; }
-.ball-spinner {
-  width: 50px; height: 50px; border: 5px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #00ff88; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;
-}
+.ball-spinner { width: 50px; height: 50px; border: 5px solid rgba(255, 255, 255, 0.1); border-top-color: #00ff88; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-/* --- МОДАЛЬНЕ ВІКНО ПРИ ДОДАВАННІ В КОШИК --- */
-.modal-backdrop {
-  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(11, 15, 25, 0.8); backdrop-filter: blur(12px);
-  display: flex; align-items: center; justify-content: center; z-index: 999999;
-}
-
-.success-modal {
-  background: rgba(17, 24, 39, 0.95); border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 32px; padding: 40px; width: 90%; max-width: 420px; text-align: center;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 255, 136, 0.1);
-}
-
-.icon-circle {
-  width: 80px; height: 80px; margin: 0 auto 20px;
-  background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.3);
-  border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem;
-  box-shadow: 0 10px 25px rgba(0, 255, 136, 0.2);
-}
-
+.modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.8); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; z-index: 999999; }
+.success-modal { background: rgba(17, 24, 39, 0.95); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 32px; padding: 40px; width: 90%; max-width: 420px; text-align: center; box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 255, 136, 0.1); }
+.icon-circle { width: 80px; height: 80px; margin: 0 auto 20px; background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; box-shadow: 0 10px 25px rgba(0, 255, 136, 0.2); }
 .modal-title { margin: 0 0 10px 0; font-size: 1.6rem; font-weight: 900; color: white; }
 .modal-msg { margin: 0 0 25px 0; color: #94a3b8; font-size: 1.1rem; line-height: 1.5; }
 .size-text { color: #00ff88; font-weight: 800; font-size: 0.95rem; display: inline-block; margin-top: 5px; padding: 4px 10px; background: rgba(0, 255, 136, 0.1); border-radius: 8px;}
-
 .modal-actions { display: flex; flex-direction: column; gap: 12px; }
-
-.btn-primary {
-  background: #00ff88; color: #0f172a; border: none; padding: 16px; border-radius: 16px;
-  font-weight: 900; font-size: 1.05rem; cursor: pointer; transition: 0.3s;
-}
+.btn-primary { background: #00ff88; color: #0f172a; border: none; padding: 16px; border-radius: 16px; font-weight: 900; font-size: 1.05rem; cursor: pointer; transition: 0.3s; }
 .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0, 255, 136, 0.3); }
-
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.05); color: white; border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 16px; border-radius: 16px; font-weight: 800; font-size: 1.05rem; cursor: pointer; transition: 0.3s;
-}
+.btn-secondary { background: rgba(255, 255, 255, 0.05); color: white; border: 1px solid rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 16px; font-weight: 800; font-size: 1.05rem; cursor: pointer; transition: 0.3s; }
 .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); border-color: #00ff88; color: #00ff88; }
-
 .fade-enter-active, .fade-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: scale(0.95) translateY(20px); }
-
-/* Адаптивність */
-@media (max-width: 1000px) {
-  .product-layout { grid-template-columns: 1fr; }
-  .product-title { font-size: 2rem; }
-}
-
-@media (max-width: 768px) {
-  .description-glass { padding: 30px 20px; }
-  .feature-row {
-    flex-direction: column;
-    gap: 8px;
-    padding: 15px;
-  }
-  .feature-label {
-    min-width: auto;
-    color: #00ff88;
-  }
-}
+@media (max-width: 1000px) { .product-layout { grid-template-columns: 1fr; } .product-title { font-size: 2rem; } }
+@media (max-width: 768px) { .description-glass { padding: 30px 20px; } .feature-row { flex-direction: column; gap: 8px; padding: 15px; } .feature-label { min-width: auto; color: #00ff88; } }
 </style>
